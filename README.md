@@ -9,36 +9,7 @@ IntroCS Fall Term 2017-2018
 5. Update this file (press the pencil icon at the side)
 
 ## H2 Coding format
-;What context
-to lowerUpper
-  command[
-    code
-    command[
-      ;Single semicolon for comments. For long
-      ;comments, continue off another single semicolon
-      code
-    ]
-  ]
-end
-
-Example:
-
-;Observer context
-to go
-  every 1 / 60 [
-    moveUp
-    ask patch 0 0 [
-      ;Sets pcolor to a random color
-      set pcolor random 138
-    ]
-  ]
-end
-
-to moveUp
-  ask turtles[
-    fd 1
-  ]
-end
+Look at example uploaded file
 
 ## H2 What Masataka need to code
 
