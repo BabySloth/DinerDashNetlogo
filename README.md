@@ -6,7 +6,7 @@ IntroCS Fall Term 2017-2018
 2. Add whatever
 3. Upload the code
 4. Press commit (bottom of the page)
-5. Update this file (press the pencil icon) 
+5. Update this file (press the pencil icon at the side)
 
 ## H2 Coding format
 ;What context
