@@ -11,6 +11,5 @@ IntroCS Fall Term 2017-2018
 ## H2 Coding format
 Look at example uploaded file
 
-## H2 What Masataka need to code
-
-## H2 What William need to code
+## H2 What needs to be done
+[Link to google docs](https://docs.google.com/document/d/1vsymk7J4fdsVR02nN1uIX_hhSnKJZL9jIxRXHr27D9A/edit)
