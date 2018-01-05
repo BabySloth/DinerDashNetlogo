@@ -1,44 +1,163 @@
 ;;Diner Dash
 breed [waitresses waitress]
+breed [customers customer]
+
+globals[
+  ;Determines if gameplay mode is on (not including upgrade scene)
+  isPlaying?
+
+  ;Waitress speed is global for upgrade scene and scene change
+  waitressSpeed
+
+  ;Timing system in game
+  secondsLimit
+
+  ;Level tracker
+  level
+
+  ;Time: timeUntilClose and displayTime is a string
+  timeUntilClose displayTime
+
+  ;Determines if customers will be able to enter or not
+  isOpen?
+]
 
 to setup
+  ca
+  reset-ticks
+
+  ;Creates characters and defaults
+  defaultShapesCharacters
   createCharacters
 
+  ;Sets variables
+  setDefaultVariables
+end
+
+;Should only be run once, the press setup
+to defaultShapesCharacters
+  set-default-shape waitresses "person"
+  set-default-shape customers "person"
 end
 
 to createCharacters
   create-waitresses 1[
     setxy 5 5
+    set color orange
+    set size 2
+    set label "press spacebar to begin"
   ]
 end
 
-;;Movement for waitress
+to setDefaultVariables
+  ;Player doesn't start playing until spacebar initizilze
+  set isPlaying? false
+  set timeUntilClose 10
+end
+
+to go
+  every 1[
+    if isPlaying?[
+      ;Calculate time and updates time for player to see
+      calculateTime
+    ]
+
+    tick
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;;Controls for player;;
+;;;;;;;;;;;;;;;;;;;;;;;
 
 to moveForward
-  ask waitresses[
-    fd 1
-  ]
+  movement 0
 end
 
 to moveDown
-  ask waitresses[
-    set heading
-  ]
+  movement 180
 end
 
 to moveRight
-  ask waitresses[
-    set heading 270
-  ]
+  movement 90
 end
 
 to moveLeft
-  ask waitresses[
-    set heading 90
+  movement 270
+end
+
+to movement [headTo]
+  ;Prevents waitress from walking into chairs/tables
+  ask waitresses [
+    if [pcolor] of patch-at-heading-and-distance headTo 1 = black[
+      set heading headTo
+      fd 1
+    ]
   ]
 end
 
-to movement [headTo
+to interact
+  ;Press spacebar to initilize the game; only works if isPlaying? = false
+  initilizeGame
+end
+
+to initilizeGame
+  if not isPlaying? [
+    set isPlaying? true
+    startTime
+    set isOpen? true
+    ask waitresses[
+      ;Removes label for telling player to press spacebar to start
+      set label ""
+    ]
+  ]
+end
+
+;;;;;;;;
+;;Time;;
+;;;;;;;;
+
+to startTime
+  reset-ticks
+end
+
+to calculateTime
+  let secondsUntilClose timeUntilClose - ticks
+
+  if secondsUntilClose <= 0 [
+    ;Tells player that no customers may enter anymore
+    set displayTime "CLOSED"
+    set isOpen? false
+
+    ;Prevents negative time
+    stop
+  ]
+
+  let minutesLeft floor ((secondsUntilClose) / 60)
+  let secondsLeft secondsUntilClose mod 60
+
+  set displayTime (word minutesLeft " : " secondsLeft)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -83,8 +202,8 @@ MONITOR
 101
 152
 146
-Closing Countdown
-\"CLOSED\"
+Time Until Closing
+displayTime
 17
 1
 11
@@ -95,7 +214,7 @@ MONITOR
 70
 193
 Level
-\"1\"
+level
 17
 1
 11
@@ -185,6 +304,40 @@ BUTTON
 43
 NIL
 setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+93
+10
+156
+43
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+64
+356
+143
+389
+Interact
+interact
 NIL
 1
 T
@@ -537,7 +690,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.1
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
