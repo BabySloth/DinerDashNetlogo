@@ -1,13 +1,6 @@
 # Diner Dash Written in Netlogo
 IntroCS Fall Term 2017-2018
 
-## Naming file and uploading to github
-1. Download file
-2. Add whatever
-3. Upload the code
-4. Press commit (bottom of the page)
-5. Update this file (press the pencil icon at the side)
-
 ## Coding format
 Look at example uploaded file
 
