@@ -55,6 +55,90 @@ to setDefaultVariables
   set timeUntilClose 10
 end
 
+to createTableForOne [ xPos yPos ]
+  ;This will make the patch color of the person
+  ;gray making the illusion the are sitting down.
+  ;This will also make the table
+  ask patches with [ xPos = pxcor
+    and  (yPos - 2) <= pycor
+    and pycor <= yPos ][
+    set pcolor gray
+  ]
+  ask patches with [ ( xPos + 3 ) = pxcor
+    and (yPos - 2) <= pycor
+    and pycor <= yPos ][
+    set pcolor gray
+  ]
+  ask patches with [ ( xPos + 1 ) = pxcor
+    and (yPos - 2) <= pycor
+    and pycor <= yPos ][
+    set pcolor brown
+  ]
+  ask patches with [ ( xPos + 2 ) = pxcor
+    and (yPos - 2) <= pycor
+    and pycor <= yPos ][
+    set pcolor brown
+  ]
+end
+
+to createTableForTwo [ xPos yPos ]
+  ;This will make the patch color of the person
+  ;gray making the illusion the are sitting down.
+  ;This will also make the table
+  ask patches with [ xPos = pxcor
+    and  (yPos - 4) <= pycor
+    and pycor <= yPos ][
+    set pcolor gray
+  ]
+  ask patches with [ ( xPos + 3 ) = pxcor
+    and (yPos - 4) <= pycor
+    and pycor <= yPos ][
+    set pcolor gray
+  ]
+  ask patches with [ ( xPos + 1 ) = pxcor
+    and (yPos - 4) <= pycor
+    and pycor <= yPos ][
+    set pcolor brown
+  ]
+  ask patches with [ ( xPos + 2 ) = pxcor
+    and (yPos - 4) <= pycor
+    and pycor <= yPos ][
+    set pcolor brown
+  ]
+end
+
+to createKitchen
+  ; this will make the kitchen
+  ask patches with [
+    pxcor < 8 and pxcor > -8 and
+    pycor < 16 and pycor > 13
+  ]
+  [
+    set pcolor brown
+  ]
+end
+
+to createScene
+  ; this will make the scenes for the different levels.
+  ifelse level < 4
+  [
+    createtableforone -7 5
+    createtableforone 7 5
+    createtablefortwo -7 -7
+    createtablefortwo 7 -7
+    createkitchen
+  ]
+  [
+    createtableforone -7 5
+    createtableforone 0 5
+    createtableforone 7 5
+    createtablefortwo 7 -7
+    createtablefortwo 0 -7
+    createtablefortwo 7 5
+    kitchen
+  ]
+end
+
 to go
   every 1[
     if isPlaying?[
