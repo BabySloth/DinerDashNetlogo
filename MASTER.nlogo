@@ -2,6 +2,7 @@
 breed [waitresses waitress]
 breed [customers customer]
 
+
 globals[
   ;Determines if gameplay mode is on (not including upgrade scene)
   isPlaying?
@@ -21,14 +22,37 @@ globals[
   ;Determines if customers will be able to enter or not
   isOpen?
 
-  ;Money
+  ;Money & moneyText is for player to see
   moneyEarned moneyNeed moneyText
+
 ]
 
+to createCustomers [numberCust]
+  create-customers numberCust [
+    ;set
+  ]
+end
 to setup
   ca
   reset-ticks
+  cro 1 [
+    set shape "circle"
+    set size 1
+    set label "Tutorial--------"
+    setxy 3 -2
+  ]
+  cro 1 [
+    set shape "circle"
+    set size 1
+    set label "Start Game--------"
+    setxy 3 -8
+  ]
+end
 
+to fix
+
+
+  ;fix
   ;Creates characters and defaults
   defaultShapesCharacters
   createCharacters
@@ -133,19 +157,19 @@ end
 to createScene
   ifelse level < 4
   [
-    createtableforone -7 5
-    createtableforone 7 5
-    createtablefortwo -7 -7
-    createtablefortwo 7 -7
+    createTableForOne -7 5
+    createTableForOne 7 5
+    createTableForTwo -7 -7
+    createTableForTwo 7 -7
     createkitchen
   ]
   [
-    createtableforone -7 5
-    createtableforone 0 5
-    createtableforone 7 5
-    createtablefortwo 7 -7
-    createtablefortwo 0 -7
-    createtablefortwo 7 5
+    createTableForOne -7 5
+    createTableForOne 0 5
+    createTableForOne 7 5
+    createTableForTwo 7 -7
+    createTableForTwo 0 -7
+    createTableForTwo 7 5
     createKitchen
   ]
 end
@@ -160,7 +184,7 @@ to go
   every 1[
     if isPlaying?[
       ;Calculate time and updates time for player to see
-      calculateTimes
+      calculateTime
     ]
 
     ;;Checks if player met goal
@@ -212,7 +236,7 @@ to initilizeGame
   if not isPlaying? [
     set isPlaying? true
     startTime
-    set isOpen? trues
+    set isOpen? true
     beginLevel
     ask waitresses[
       ;Removes label for telling player to press spacebar to start
@@ -267,7 +291,7 @@ end
 ;;;;;;;;;;;;;;;;;
 
 to checkForWinCondition
-  ifelse moneyEarned >= moneyNees[
+  ifelse moneyEarned >= moneyNeed[
     ;;Next level
   ][
     ;;Tell player they lost and
@@ -286,6 +310,7 @@ to beginLevel
 
   ;;Prepares variables
 end
+
 
 
 
@@ -833,7 +858,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
