@@ -11,3 +11,7 @@ Opens in the same tab, doesn't create another tab
 ## Bug/tofix
 - Add bin 
 - Make waitress spawn next to the bin
+Fix My Code 
+delete masataka file. code directly onto master file. 
+code the costumer happines level 
+create a method creating groups of people with random size. 
