@@ -1,4 +1,3 @@
-
 to createTableForOne [ xPos yPos ]
   ;This will make the patch color of the person
   ;gray making the illusion the are sitting down.
@@ -10,17 +9,17 @@ to createTableForOne [ xPos yPos ]
   ]
   ask patches with [ ( xPos + 3 ) = pxcor
     and (yPos - 2) <= pycor
-    and pycor <= xPos ][
+    and pycor <= yPos ][
     set pcolor gray
   ]
   ask patches with [ ( xPos + 1 ) = pxcor
     and (yPos - 2) <= pycor
-    and pycor <= xPos ][
+    and pycor <= yPos ][
     set pcolor brown
   ]
   ask patches with [ ( xPos + 2 ) = pxcor
     and (yPos - 2) <= pycor
-    and pycor <= xPos ][
+    and pycor <= yPos ][
     set pcolor brown
   ]
 end
@@ -36,22 +35,52 @@ to createTableForTwo [ xPos yPos ]
   ]
   ask patches with [ ( xPos + 3 ) = pxcor
     and (yPos - 4) <= pycor
-    and pycor <= xPos ][
+    and pycor <= yPos ][
     set pcolor gray
   ]
   ask patches with [ ( xPos + 1 ) = pxcor
     and (yPos - 4) <= pycor
-    and pycor <= xPos ][
+    and pycor <= yPos ][
     set pcolor brown
   ]
   ask patches with [ ( xPos + 2 ) = pxcor
     and (yPos - 4) <= pycor
-    and pycor <= xPos ][
+    and pycor <= yPos ][
     set pcolor brown
   ]
 end
 
+to createKitchen
+  ; this will make the kitchen
+  ask patches with [
+    pxcor < 8 and pxcor > -8 and
+    pycor < 16 and pycor > 13
+  ]
+  [
+    set pcolor brown
+  ]
+end
 
+to createScene
+  ; this will make the scenes for the different levels.
+  ifelse level < 4
+  [
+    createtableforone -7 5
+    createtableforone 7 5
+    createtablefortwo -7 -7
+    createtablefortwo 7 -7
+    createkitchen
+  ]
+  [
+    createtableforone -7 5
+    createtableforone 0 5
+    createtableforone 7 5
+    createtablefortwo 7 -7
+    createtablefortwo 0 -7
+    createtablefortwo 7 5
+    kitchen
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -422,7 +451,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.1
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
