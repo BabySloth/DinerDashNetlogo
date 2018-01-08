@@ -20,6 +20,9 @@ globals[
 
   ;Determines if customers will be able to enter or not
   isOpen?
+
+  ;Money
+  moneyEarned moneyNeed moneyText
 ]
 
 to setup
@@ -30,11 +33,11 @@ to setup
   defaultShapesCharacters
   createCharacters
 
-  ;Sets variables
+  ;Sets variables (not gameplay variables)
   setDefaultVariables
 
-  ;Sets up game for first level
-  createScene
+  ;Sets up loading screen
+  createLoadingScreen
 end
 
 ;Should only be run once, the press setup
@@ -55,7 +58,9 @@ end
 to setDefaultVariables
   ;Player doesn't start playing until spacebar initizilze
   set isPlaying? false
+
   set timeUntilClose 10
+
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -145,11 +150,23 @@ to createScene
   ]
 end
 
+;;Creates the loading screen when
+;;player first starts
+to createLoadingScreen
+
+end
+
 to go
   every 1[
     if isPlaying?[
       ;Calculate time and updates time for player to see
-      calculateTime
+      calculateTimes
+    ]
+
+    ;;Checks if player met goal
+    ;;when all customers are gone
+    if isPlaying? and not any? customers[
+      checkForWinCondition
     ]
 
     tick
@@ -195,7 +212,8 @@ to initilizeGame
   if not isPlaying? [
     set isPlaying? true
     startTime
-    set isOpen? true
+    set isOpen? trues
+    beginLevel
     ask waitresses[
       ;Removes label for telling player to press spacebar to start
       set label ""
@@ -211,6 +229,7 @@ to startTime
   reset-ticks
 end
 
+;Calculate time and shows to player
 to calculateTime
   let secondsUntilClose timeUntilClose - ticks
 
@@ -229,9 +248,44 @@ to calculateTime
   set displayTime (word minutesLeft " : " secondsLeft)
 end
 
+;;;;;;;;;
+;;Money;;
+;;;;;;;;;
 
+to addMoneyEarned [ numPeople ]
+  ;Formula for money
 
+end
 
+;Shows money to player
+to calculateMoney
+  set moneyText (word moneyEarned " / " moneyNeed)
+end
+
+;;;;;;;;;;;;;;;;;
+;;Level control;;
+;;;;;;;;;;;;;;;;;
+
+to checkForWinCondition
+  ifelse moneyEarned >= moneyNees[
+    ;;Next level
+  ][
+    ;;Tell player they lost and
+    ;;Needs to restart
+  ]
+end
+
+;Tells player they lost
+to loseMessage
+
+end
+
+;;Starts the game and prepares variables
+to beginLevel
+  createScene
+
+  ;;Prepares variables
+end
 
 
 
@@ -281,7 +335,7 @@ MONITOR
 108
 100
 Profit / Need
-\"1000 / 1500\"
+moneyText
 17
 1
 11
