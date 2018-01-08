@@ -32,6 +32,9 @@ to setup
 
   ;Sets variables
   setDefaultVariables
+
+  ;Sets up game for first level
+  createScene
 end
 
 ;Should only be run once, the press setup
@@ -55,10 +58,13 @@ to setDefaultVariables
   set timeUntilClose 10
 end
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Creating the scene for gameplay;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 to createTableForOne [ xPos yPos ]
-  ;This will make the patch color of the person
-  ;gray making the illusion the are sitting down.
-  ;This will also make the table
+  ;This will make the chair patch color of gray
+  ;and table, the color of brown
   ask patches with [ xPos = pxcor
     and  (yPos - 2) <= pycor
     and pycor <= yPos ][
@@ -118,8 +124,8 @@ to createKitchen
   ]
 end
 
+; this will make the scenes for the different levels.
 to createScene
-  ; this will make the scenes for the different levels.
   ifelse level < 4
   [
     createtableforone -7 5
@@ -135,7 +141,7 @@ to createScene
     createtablefortwo 7 -7
     createtablefortwo 0 -7
     createtablefortwo 7 5
-    kitchen
+    createKitchen
   ]
 end
 
@@ -222,7 +228,6 @@ to calculateTime
 
   set displayTime (word minutesLeft " : " secondsLeft)
 end
-
 
 
 
