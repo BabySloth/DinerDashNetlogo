@@ -61,9 +61,19 @@ to createKitchen
   ]
 end
 
+to createBin
+  ; this will create the bin used for collecting dishes
+  ask patches with [
+    pxcor < 17 and pxcor > 14 and
+    pycor < 6  and pycor > 1
+  ]
+  [
+    set pcolor blue
+  ]
+end
+
 to createScene
   ; this will make the scenes for the different levels.
-  ifelse level < 4
   [
     createtableforone -7 5
     createtableforone 7 5
