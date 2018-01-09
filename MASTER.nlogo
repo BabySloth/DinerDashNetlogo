@@ -3,17 +3,25 @@ breed [waitresses waitress]
 breed [customers customer]
 
 
+;Needs to be added before more content:
+;Intermission screen between levels
+;This will solve a lot of confusion
+
+;Bug? clicking a turtle in startUpScreen doesn't always activate
+;Seems like it occurs when you don't hold down right click for
+;a long time - add a label to warn player
+
 globals[
+  ;Split up by gameplay variables (Time, isOpen?, Money) and
+  ;general setup gameplay variables (isPlaying?)
+
   ;Determines if gameplay mode is on (not including upgrade scene)
   isPlaying?
 
   ;Waitress speed is global for upgrade scene and scene change
   waitressSpeed
 
-  ;Timing system in game
-  secondsLimit
-
-  ;Level tracker
+  ;Level tracker (0 means tutorial)
   level
 
   ;Time: timeUntilClose and displayTime is a string
@@ -27,56 +35,51 @@ globals[
 
 ]
 
-to createCustomers [numberCust]
-  create-customers numberCust [
-    ;set
-  ]
-end
 to setup
   ca
+  ;For time procedures
   reset-ticks
-  cro 1 [
-    set shape "circle"
-    set size 1
-    set label "Tutorial--------"
-    setxy 3 -2
-  ]
-  cro 1 [
-    set shape "circle"
-    set size 1
-    set label "Start Game--------"
-    setxy 3 -8
-  ]
-end
 
-to fix
+  ;Character designs
+  setDefaultShapesCharacters
 
-
-  ;fix
-  ;Creates characters and defaults
-  defaultShapesCharacters
-  createCharacters
-
-  ;Sets variables (not gameplay variables)
+  ;Basic variables setups (not gameplay variables)
   setDefaultVariables
 
-  ;Sets up loading screen
-  createLoadingScreen
+  ;Starts the startup screen for user
+  ;to choose between tutorial and gameplay mode
+  startUpScreen
 end
 
-;Should only be run once, the press setup
-to defaultShapesCharacters
+to startUpScreen
+  ;Sets up world by size and pcolor
+  resize-world -256 256 -256 256
+  set-patch-size 1
+  import-pcolors "startUpScreen.jpeg"
+
+  ;Turtles needs to be clicked on (logic in go procedure)
+
+  ;Turtles acts like a button for choices
+  cro 1 [
+    ;Activates tutorial mode
+    setxy -192 57
+    set size 25
+    set shape "circle"
+    set color green
+  ]
+
+  ;Activates regular gameplay mode
+  cro 1 [
+    setxy -192 -57
+    set size 25
+    set shape "circle"
+    set color green
+  ]
+end
+
+to setDefaultShapesCharacters
   set-default-shape waitresses "person"
   set-default-shape customers "person"
-end
-
-to createCharacters
-  create-waitresses 1[
-    setxy 5 5
-    set color orange
-    set size 2
-    set label "press spacebar to begin"
-  ]
 end
 
 to setDefaultVariables
@@ -85,6 +88,124 @@ to setDefaultVariables
 
   set timeUntilClose 10
 
+end
+
+to go
+  every 1[
+    ;Player will click on option in the startUpScreen
+    if not isPlaying? and mouse-down?[
+      startUpScreenOptionClick
+    ]
+
+    if isPlaying?[
+      ;Calculate time and updates time for player to see
+      calculateTime
+    ]
+
+    ;;Checks if player met goal
+    ;;when all customers are gone
+    if isPlaying? and not any? customers[
+      checkForWinCondition
+    ]
+  ]
+end
+
+;Logic for clicking turtles in startUpScreen
+to startUpScreenOptionClick
+  ;Tells if a player choose an option or just
+  ;randomly clicks somewhere
+  let validChoice? false
+  ask patch mouse-xcor mouse-ycor[
+    if any? turtles in-radius 50[
+      ask turtles in-radius 50[
+        ;who = 0 means option for tutorial
+        ifelse who = 0[
+          ;Level 0 is tutorial
+          set level 0
+        ][
+        ;who = 1 means option for playthrough
+          set level 1
+        ]
+        set validChoice? true
+      ]
+    ]
+  ]
+
+  if validChoice?[
+    ;Sets up screen for player to play
+    beginLevel
+  ]
+end
+
+;;;;;;;;;;;;;;;;;
+;;Level control;;
+;;;;;;;;;;;;;;;;;
+
+;;Starts the game and prepares variables
+to beginLevel
+  createScene
+
+  ;Starts time
+  prepareTime
+
+
+  ;Prepares variables
+
+end
+
+;;;;;;;;;
+;;Money;;
+;;;;;;;;;
+
+to addMoneyEarned [ numPeople ]
+  ;Formula for money
+
+end
+
+;Shows money to player
+to calculateMoney
+  set moneyText (word moneyEarned " / " moneyNeed)
+end
+
+to checkForWinCondition
+  ifelse moneyEarned >= moneyNeed[
+    ;;Next level
+  ][
+    ;;Tell player they lost and
+    ;;Needs to restart
+  ]
+end
+
+;Tells player they lost
+to loseMessage
+
+end
+
+;;;;;;;;
+;;Time;;
+;;;;;;;;
+
+to prepareTime
+  reset-ticks
+end
+
+;Calculate time and shows to player
+to calculateTime
+  let secondsUntilClose timeUntilClose - ticks
+
+  if secondsUntilClose <= 0 [
+    ;Tells player that no customers may enter anymore
+    set displayTime "CLOSED"
+    set isOpen? false
+
+    ;Prevents negative time
+    stop
+  ]
+
+  let minutesLeft floor ((secondsUntilClose) / 60)
+  let secondsLeft secondsUntilClose mod 60
+
+  set displayTime (word minutesLeft " : " secondsLeft)
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -153,47 +274,46 @@ to createKitchen
   ]
 end
 
-; this will make the scenes for the different levels.
+to createBin
+  ; this will create the bin used for collecting dishes
+  ask patches with [ pxcor < 17 and pxcor > 14 and
+    pycor < 9  and pycor > 4 ][
+    set pcolor blue
+  ]
+end
+
+;This will make the scenes for the different levels.
 to createScene
-  ifelse level < 4
-  [
+  ;resizes to fix context of gameplay
+  resize-world -16 16 -16 16
+  set-patch-size 13
+
+  ;Tutorial mode and below level 4
+  ifelse level < 4 [
     createTableForOne -7 5
     createTableForOne 7 5
     createTableForTwo -7 -7
     createTableForTwo 7 -7
-    createkitchen
-  ]
-  [
+  ][
     createTableForOne -7 5
     createTableForOne 0 5
     createTableForOne 7 5
     createTableForTwo 7 -7
     createTableForTwo 0 -7
     createTableForTwo 7 5
-    createKitchen
   ]
+
+  createkitchen
+  createBin
+  createWaitress
 end
 
-;;Creates the loading screen when
-;;player first starts
-to createLoadingScreen
-
-end
-
-to go
-  every 1[
-    if isPlaying?[
-      ;Calculate time and updates time for player to see
-      calculateTime
-    ]
-
-    ;;Checks if player met goal
-    ;;when all customers are gone
-    if isPlaying? and not any? customers[
-      checkForWinCondition
-    ]
-
-    tick
+to createWaitress
+  create-waitresses 1[
+    setxy 13 8
+    set color orange
+    set size 2
+    set label "press spacebar to begin       "
   ]
 end
 
@@ -234,90 +354,12 @@ end
 
 to initilizeGame
   if not isPlaying? [
-    set isPlaying? true
-    startTime
-    set isOpen? true
-    beginLevel
     ask waitresses[
       ;Removes label for telling player to press spacebar to start
       set label ""
     ]
   ]
 end
-
-;;;;;;;;
-;;Time;;
-;;;;;;;;
-
-to startTime
-  reset-ticks
-end
-
-;Calculate time and shows to player
-to calculateTime
-  let secondsUntilClose timeUntilClose - ticks
-
-  if secondsUntilClose <= 0 [
-    ;Tells player that no customers may enter anymore
-    set displayTime "CLOSED"
-    set isOpen? false
-
-    ;Prevents negative time
-    stop
-  ]
-
-  let minutesLeft floor ((secondsUntilClose) / 60)
-  let secondsLeft secondsUntilClose mod 60
-
-  set displayTime (word minutesLeft " : " secondsLeft)
-end
-
-;;;;;;;;;
-;;Money;;
-;;;;;;;;;
-
-to addMoneyEarned [ numPeople ]
-  ;Formula for money
-
-end
-
-;Shows money to player
-to calculateMoney
-  set moneyText (word moneyEarned " / " moneyNeed)
-end
-
-;;;;;;;;;;;;;;;;;
-;;Level control;;
-;;;;;;;;;;;;;;;;;
-
-to checkForWinCondition
-  ifelse moneyEarned >= moneyNeed[
-    ;;Next level
-  ][
-    ;;Tell player they lost and
-    ;;Needs to restart
-  ]
-end
-
-;Tells player they lost
-to loseMessage
-
-end
-
-;;Starts the game and prepares variables
-to beginLevel
-  createScene
-
-  ;;Prepares variables
-end
-
-
-
-
-
-
-
-
 
 
 
@@ -415,10 +457,10 @@ NIL
 1
 
 BUTTON
-9
-280
-72
-313
+8
+282
+71
+315
 Left
 moveLeft
 NIL
@@ -432,10 +474,10 @@ NIL
 1
 
 BUTTON
-71
-315
-135
-348
+70
+314
+134
+347
 Down
 moveDown
 NIL
@@ -449,10 +491,10 @@ NIL
 1
 
 BUTTON
-134
-283
-203
-316
+133
+282
+202
+315
 Right
 moveRight
 NIL
@@ -500,10 +542,10 @@ NIL
 1
 
 BUTTON
-64
-356
-143
-389
+62
+347
+141
+380
 Interact
 interact
 NIL
@@ -858,7 +900,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.1
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
