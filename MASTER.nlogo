@@ -2,21 +2,12 @@
 breed [waitresses waitress]
 breed [customers customer]
 
-
-;Needs to be added before more content:
-;Intermission screen between levels
-;This will solve a lot of confusion
-
-;Bug? clicking a turtle in startUpScreen doesn't always activate
-;Seems like it occurs when you don't hold down right click for
-;a long time - add a label to warn player
-
 globals[
   ;Split up by gameplay variables (Time, isOpen?, Money) and
   ;general setup gameplay variables (isPlaying?)
 
   ;Determines if gameplay mode is on (not including upgrade scene)
-  isPlaying?
+  isGameActive?
 
   ;Waitress speed is global for upgrade scene and scene change
   waitressSpeed
@@ -25,14 +16,18 @@ globals[
   level
 
   ;Time: timeUntilClose and displayTime is a string
-  timeUntilClose displayTime
+  timeUntilClose timeUp? displayTime
 
   ;Determines if customers will be able to enter or not
+  ;by whether the time is up or not
   isOpen?
 
   ;Money & moneyText is for player to see
-  moneyEarned moneyNeed moneyText
+  moneyEarned moneyNeeded moneyText
 
+  ;What display is being shown
+  ;Ex. intermission, startUp
+  activeScreen
 ]
 
 to setup
@@ -56,6 +51,8 @@ to startUpScreen
   resize-world -256 256 -256 256
   set-patch-size 1
   import-pcolors "startUpScreen.jpeg"
+
+  set activeScreen "startUp"
 
   ;Turtles needs to be clicked on (logic in go procedure)
 
@@ -84,29 +81,36 @@ end
 
 to setDefaultVariables
   ;Player doesn't start playing until spacebar initizilze
-  set isPlaying? false
+  set isGameActive? false
 
-  set timeUntilClose 10
-
+  ;Set variables to string, integer, or boolean
+  ;to prevent errors
+  set activeScreen ""
+  set isOpen? false
 end
 
 to go
-  every 1[
-    ;Player will click on option in the startUpScreen
-    if not isPlaying? and mouse-down?[
-      startUpScreenOptionClick
-    ]
+  ;Player will click on option in the startUpScreen
+  ;Outside of every statement to allow
+  ;turtle "button" pressing
+  if mouse-down? and mouse-inside? and (activeScreen = "startUp") and (not isGameActive?)[
+    startUpScreenOptionClick
+  ]
 
-    if isPlaying?[
-      ;Calculate time and updates time for player to see
+  every 1 [
+    ;Looks at whether the game is started
+    ;and starts countdown to closing time
+    if isGameActive?[
       calculateTime
     ]
 
     ;;Checks if player met goal
-    ;;when all customers are gone
-    if isPlaying? and not any? customers[
+    ;When time is up and no more customers are entering
+    if not isOpen? and not any? customers[
       checkForWinCondition
     ]
+
+    tick
   ]
 end
 
@@ -133,24 +137,82 @@ to startUpScreenOptionClick
 
   if validChoice?[
     ;Sets up screen for player to play
-    beginLevel
+    loadIntermission
   ]
 end
+
+
 
 ;;;;;;;;;;;;;;;;;
 ;;Level control;;
 ;;;;;;;;;;;;;;;;;
 
-;;Starts the game and prepares variables
+;;Starts the game
 to beginLevel
+  ;Sets the variables depending on level
+  ;Must be called first
+  setLevelVariables
+
+  ;Creates the scene
   createScene
 
-  ;Starts time
+  ;Begins time countdown
   prepareTime
 
+  ;Tells the game that the game started
+  ;Must be set last because of the forever go
+  set isGameActive? true
+end
 
-  ;Prepares variables
+;Prepares variables
+to setLevelVariables
+  set timeUntilClose 5 * 60 ;5 minutes
+  set moneyNeeded 1500
 
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;;Controls for player;;
+;;;;;;;;;;;;;;;;;;;;;;;
+
+to moveForward
+  movement 0
+end
+
+to moveDown
+  movement 180
+end
+
+to moveRight
+  movement 90
+end
+
+to moveLeft
+  movement 270
+end
+
+;Prevents waitress from walking into chairs/tables
+to movement [direction]
+  ask waitresses [
+    if [pcolor] of patch-at-heading-and-distance direction 1 = black[
+      set heading direction
+      fd 1
+    ]
+  ]
+end
+
+to interact
+  ;Press spacebar to initilize the game; only on intermission or when on player
+  initGame
+
+end
+
+to initGame
+  if not isGameActive? [
+    ;Creates the scene
+    beginLevel
+  ]
 end
 
 ;;;;;;;;;
@@ -164,11 +226,11 @@ end
 
 ;Shows money to player
 to calculateMoney
-  set moneyText (word moneyEarned " / " moneyNeed)
+  set moneyText (word moneyEarned " / " moneyNeeded)
 end
 
 to checkForWinCondition
-  ifelse moneyEarned >= moneyNeed[
+  ifelse moneyEarned >= moneyNeeded[
     ;;Next level
   ][
     ;;Tell player they lost and
@@ -180,6 +242,7 @@ end
 to loseMessage
 
 end
+
 
 ;;;;;;;;
 ;;Time;;
@@ -205,12 +268,17 @@ to calculateTime
   let minutesLeft floor ((secondsUntilClose) / 60)
   let secondsLeft secondsUntilClose mod 60
 
+  ;Makes time x:04 rather than x:4
+  if secondsLeft < 10[
+    set secondsLeft (word "0" secondsLeft)
+  ]
+
   set displayTime (word minutesLeft " : " secondsLeft)
 end
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;Creating the scene for gameplay;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Creating the scene for game;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to createTableForOne [ xPos yPos ]
   ;This will make the chair patch color of gray
@@ -268,8 +336,7 @@ to createKitchen
   ask patches with [
     pxcor < 8 and pxcor > -8 and
     pycor < 16 and pycor > 13
-  ]
-  [
+  ][
     set pcolor brown
   ]
 end
@@ -282,11 +349,25 @@ to createBin
   ]
 end
 
+to createWaitress
+  create-waitresses 1[
+    setxy 13 8
+    set color orange
+    set size 2
+  ]
+end
+
 ;This will make the scenes for the different levels.
 to createScene
+  ;Removes turtles left behind from previous scenes
+  clear-turtles
+
   ;resizes to fix context of gameplay
   resize-world -16 16 -16 16
   set-patch-size 13
+
+  ;Updates what scene is active
+  set activeScreen "gameplay"
 
   ;Tutorial mode and below level 4
   ifelse level < 4 [
@@ -308,58 +389,39 @@ to createScene
   createWaitress
 end
 
-to createWaitress
-  create-waitresses 1[
-    setxy 13 8
-    set color orange
-    set size 2
-    set label "press spacebar to begin       "
+to loadIntermission
+  clear-turtles
+  set-patch-size 13
+  resize-world -16 16 -16 16
+
+  set activeScreen "intermission"
+
+  cro 1[
+    set heading 0
+    set label "press enter to begin the game"
   ]
 end
 
-;;;;;;;;;;;;;;;;;;;;;;;
-;;Controls for player;;
-;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;
+;;Miscellaneous;;
+;;;;;;;;;;;;;;;;;
 
-to moveForward
-  movement 0
-end
 
-to moveDown
-  movement 180
-end
 
-to moveRight
-  movement 90
-end
 
-to moveLeft
-  movement 270
-end
 
-to movement [headTo]
-  ;Prevents waitress from walking into chairs/tables
-  ask waitresses [
-    if [pcolor] of patch-at-heading-and-distance headTo 1 = black[
-      set heading headTo
-      fd 1
-    ]
-  ]
-end
 
-to interact
-  ;Press spacebar to initilize the game; only works if isPlaying? = false
-  initilizeGame
-end
 
-to initilizeGame
-  if not isPlaying? [
-    ask waitresses[
-      ;Removes label for telling player to press spacebar to start
-      set label ""
-    ]
-  ]
-end
+
+
+
+
+
+
+
+
+
+
 
 
 
