@@ -11,7 +11,7 @@ breed [jBlocks jBlock]
 breed [lBlocks lBlock]
 
 ;Patches get cleared depending on age and isMoving
-patches-own [ age isPatchMoving?]
+patches-own [ isPatchMoving?]
 turtles-own [ isTurtleMoving? ]
 
 ;patch 9 21 and 9 22 are center pieces
@@ -43,7 +43,7 @@ to setup
 end
 
 to go
-  every 1 / 8[
+  every 1[
     ifelse not any? turtles with [isTurtleMoving?][
       spawnNextBlock
       ask turtles with [ isTurtleMoving? ][
@@ -72,7 +72,7 @@ to moveBlockDown
 
     ;Patches colored by the turtle determines if turtle can continue
     ;moving down
-    set ycor ycor - .1
+    set ycor ycor - 1
   ]
 end
 
@@ -80,19 +80,6 @@ to updatePatch
   ask turtles with [isTurtleMoving?][
     setPatchDesign
   ]
-end
-
-;Increase age of patch and removes old patches
-to agePatches
-  ask patches with [isPatchMoving?][
-    if age >= 1[
-      set isPatchMoving? false
-      set pcolor black
-      set age 0
-    ]
-    set age age + 1
-  ]
-
 end
 
 ;Create border lines in the well
@@ -160,10 +147,11 @@ end
 to spawnNextBlock
   cro 1[
     set isTurtleMoving? true
-    set breed item 0 nextBlocksList
+    ;set breed item 0 nextBlocksList
+    set breed jBlocks
     setxy 9 21 ;Middle of screen
     set heading 90 ;Prevents tetris pieces sticking out weirdly
-    hide-turtle
+    ;hide-turtle
     ;If the turtle spawns on a block, game is over
     if pcolor != black[
       ;lost
@@ -213,7 +201,7 @@ to pyramidsDesign
   ;Faces downwards to fit all the parts of the block
   set heading 180
   ask patch-here [ set isPatchMoving? true ]
-  ask patch-ahead 1 [ set isPatchMoving? true]
+  ask patch-ahead .7 [ set isPatchMoving? true]
   ask patch-right-and-ahead 45 1 [ set isPatchMoving? true]
   ask patch-left-and-ahead 45 1 [ set isPatchMoving? true]
 end
@@ -242,7 +230,6 @@ to threeRowLine
   ask patch-here [
     set isPatchMoving? true
     ;Prevents patch from disappearing
-    set age 0
   ]
 end
 
@@ -255,16 +242,30 @@ end
 
 to lefty
   ask turtles with [ isTurtleMoving? = true ][
+    ask patches with [isPatchMoving?][
+      set isPatchMoving? false
+      set pcolor black
+    ]
     set xcor xcor - 1
+    setPatchDesign
   ]
-  updatePatch
+  ask patches with [isPatchMoving?][
+      set pcolor gray ;Needs to be moved after implementation of unique colors
+    ]
 end
 
 to righty
   ask turtles with [ isTurtleMoving? = true ][
+    ask patches with [isPatchMoving?][
+      set isPatchMoving? false
+      set pcolor black
+    ]
     set xcor xcor + 1
+    setPatchDesign
   ]
-  updatePatch
+  ask patches with [isPatchMoving?][
+      set pcolor gray ;Needs to be moved after implementation of unique colors
+    ]
 end
 
 to down
@@ -275,16 +276,32 @@ end
 
 to rotateRight
   ask turtles with [ isTurtleMoving? = true and breed != boxes][
+    ask patches with [isPatchMoving?][
+      set isPatchMoving? false
+      set pcolor black
+    ]
     rt 90
+    setPatchDesign
   ]
-  updatePatch
+  ask patches with [isPatchMoving?][
+      set pcolor gray ;Needs to be moved after implementation of unique colors
+    ]
+
+
 end
 
 to rotateLeft
   ask turtles with [ isTurtleMoving? = true and breed != boxes][
+    ask patches with [isPatchMoving?][
+      set isPatchMoving? false
+      set pcolor black
+    ]
     lt 90
+    setPatchDesign
   ]
-  updatePatch
+  ask patches with [isPatchMoving?][
+      set pcolor gray ;Needs to be moved after implementation of unique colors
+    ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
