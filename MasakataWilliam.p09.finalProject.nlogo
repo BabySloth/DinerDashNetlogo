@@ -59,7 +59,9 @@ to go
 
       agePatches
     ]
-
+    ask patches with [isPatchMoving?][
+    set pcolor gray ;Needs to be moved after implementation of unique colors
+  ]
     tick
   ]
 end
@@ -75,8 +77,10 @@ end
 ;Increase age of patch and removes old patches
 to agePatches
   ask patches with [isPatchMoving?][
-    if age = 1[
+    if age >= 1[
+      set isPatchMoving? false
       set pcolor black
+      set age 0
     ]
     set age age + 1
   ]
@@ -150,16 +154,14 @@ to spawnNextBlock
     set isTurtleMoving? true
     set breed item 0 nextBlocksList
     setxy 9 21 ;Middle of screen
+    set heading 90 ;Prevents tetris pieces sticking out weirdly
 
     ;If the turtle spawns on a block, game is over
     if pcolor != black[
       ;lost
     ]
 
-    ;Reorientate
-    if breed = sticks [
-      rt 90
-    ]
+
 
   ]
 end
@@ -167,24 +169,64 @@ end
 ;Asks the patches around the turtle to look like that of the block
 to setPatchDesign
   if breed = sticks [
-    ask patch-ahead 1 [
-      set pcolor gray
-      set isPatchMoving? true
-    ]
-    ask patch-ahead 2 [
-      set pcolor gray
-      set isPatchMoving? true
-    ]
-    ask patch-here [
-      set pcolor gray
-      set isPatchMoving? true
-    ]
-    ask patch-at-heading-and-distance (heading + 180) 1[
-      set pcolor gray
-      set isPatchMoving? true
-    ]
+    stickDesign
+  ]
+  if breed = boxes[
+    boxesDesign
+  ]
+  if breed = pyramids[
+
+  ]
+  if breed = lBlocks[
+    lBlockDesign
+  ]
+  if breed = jBlocks[
+
+  ]
+  if breed = zBlocks[
+
+  ]
+  if breed = sBlocks[
+
+  ]
+
+end
+
+to stickDesign
+  threeRowLine
+  ask patch-at-heading-and-distance (heading + 180) 1[ set isPatchMoving? true ]
+end
+
+to boxesDesign
+  ask patch-here [set isPatchMoving? true ]
+  ask patch-ahead 1[ set isPatchMoving? true ]
+  ask patch xcor (ycor - 1) [ set isPatchMoving? true ]
+  ask patch (xcor - 1) (ycor - 1) [ set isPatchMoving? true ]
+
+end
+
+to lBlockDesign
+  threeRowLine
+  ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true ]
+end
+
+
+;Makes patches colored 3 in a line to prevent repetitive code
+to threeRowLine
+  ask patch-ahead 1 [
+    set isPatchMoving? true
+  ]
+  ask patch-ahead 2 [
+    set isPatchMoving? true
+  ]
+  ask patch-here [
+    set isPatchMoving? true
+    ;Prevents patch from disappearing
+    set age 0
   ]
 end
+
+
 
 ;;;;;;;;;;;;
 ;;Controls;;
@@ -210,13 +252,13 @@ to down
 end
 
 to rotateRight
-  ask turtles with [ isTurtleMoving? = true][
+  ask turtles with [ isTurtleMoving? = true and breed != boxes][
     rt 90
   ]
 end
 
 to rotateLeft
-  ask turtles with [ isTurtleMoving? = true][
+  ask turtles with [ isTurtleMoving? = true and breed != boxes][
     lt 90
   ]
 end
