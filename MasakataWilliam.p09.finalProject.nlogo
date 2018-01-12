@@ -2,146 +2,229 @@
 ;Period 9
 ;Tetris draft
 
-globals [
-  Level
-  linesCleared
-  Goal
-  ;List of blocks will spawn in the future
-  nextBlocksList
-
-  ;What blocks in the set of 7 are create
-  usedBlocksList
-
-  ;Constant for what possible tetriminoes are there
-  POSSIBLE_BLOCKS
-]
-turtles-own [ isMoving ]
 breed [sticks stick]
 breed [boxes box]
 breed [pyramids pyramid]
 breed [sBlocks sBlock]
 breed [zBlocks zBlock]
 breed [jBlocks jBlock]
-breed [lBlooks lBlock]
+breed [lBlocks lBlock]
 
+;Patches get cleared depending on age and isMoving
+patches-own [ age isPatchMoving?]
+turtles-own [ isTurtleMoving? ]
 
+;patch 9 21 and 9 22 are center pieces
+
+globals [
+  ;Monitors
+  Level
+  linesCleared
+  Goal
+
+  ;List of blocks will spawn in the future
+  nextBlocksList
+
+]
 
 to setup
+  ca
+  reset-ticks
+
   resize-world 0 15 0 22
   set-patch-size 25
-  borderLine
+  createGameBorder
+  createBorderLines
 
-  set nextBlocks []
-  set usedBlocksList []
-  set POSSIBLE_BLOCKS [sticks boxes pyramids sBlocks zBlocks jBlocks lBlocks]
+  set nextBlocksList []
+  createNextBlocksList
+
+  ask patches[
+    set isPatchMoving? false
+  ]
+end
+
+to go
+  every 1[
+    ifelse not any? turtles with [isTurtleMoving?][
+      spawnNextBlock
+    ][
+      ;Sets patch design only if there is an active turtle
+      ;and gives a breif pause
+      moveBlockDown
+      ask turtles with [isTurtleMoving?][
+        setPatchDesign
+      ]
+
+
+      agePatches
+    ]
+
+    tick
+  ]
+end
+
+to moveBlockDown
+  ask turtles with [isTurtleMoving?][
+    ;Patches colored by the turtle determines if turtle can continue
+    ;moving down
+    set ycor ycor - 1
+  ]
+end
+
+;Increase age of patch and removes old patches
+to agePatches
+  ask patches with [isPatchMoving?][
+    if age = 1[
+      set pcolor black
+    ]
+    set age age + 1
+  ]
 
 end
 
-;BROKEN
-to borderLine
+;Create border lines in the well
+to createBorderLines
   ;this will create a border seperating
   ;the well from the sidewell
-  cro 1 [
-    setxy 3 23
-    set color pink
-    pd
-    set heading 0
-    bk 23
-    die
-  ]
-
-  ;This will create the border around the game screen
-  ask patches with [  pxcor = 0 or
-    pxcor = 15 or
-    pycor = 0 or
-    pycor = 22 ][
-    set pcolor pink
-  ]
-
   ; this will make a grid for the well
-  ask patches with [ pxcor > 3 ][
+  ask patches with [ pxcor > 3 and pcolor != pink][
     sprout 1 [
-
       set heading 0
-      set pcolor pink
+      set color blue
       fd 0.5
-      rt 90
-      fd 0.5
-      lt 90
       pd
-      fd 1
       rt 90
-      fd 1
+      fd .5
+      repeat 4[
+        rt 90
+        fd 1
+      ]
       die
     ]
   ]
 end
 
+to createGameBorder
+  ask patches with [pxcor = 0 or
+    pxcor = 15 or
+    pycor = 0 or
+    pycor = 22 ][
+
+    set pcolor pink
+  ]
+end
+
+to createNextBlocksList
+  ;;Rules for creating blocks
+  ;There is a box with two bags inside. Each bag contains the seven possible
+  ;tetris pieces. The computer will take a piece randomly from one bag at a time
+  ;for the player to place down. Once the bag is empty, the computer will refill it
+  ;and the computer will move to the second bag. Once the second bag is empty,
+  ;it will go back to the first bag to repeat this process. This process allows
+  ;for the player to see the next 4 pieces without gaps.
+  ;** The bag are actually combined into one set; not a 2-D array
+
+  ;This is all the pieces of blocks in tetris
+  let POSSIBLE_BLOCKS (list sticks boxes pyramids sBlocks zBlocks jBlocks lBlocks)
+
+  ;When player first starts, the two sets are generated
+  if empty? nextBlocksList [
+    ;Creates the first bag
+    set nextBlocksList shuffle POSSIBLE_BLOCKS
+    ;Creates the second bag
+    let randomSet shuffle POSSIBLE_BLOCKS
+    foreach randomSet [x -> set nextBlocksList lput x nextBlocksList] ;x is each element
+  ]
+
+  ;Every 7 blocks placed will generate another set of 7 blocks to add to queue
+  if length nextBlocksList = 7[
+    let randomSet shuffle POSSIBLE_BLOCKS
+    foreach randomSet [x -> set nextBlocksList lput x nextBlocksList] ;x is each element
+  ]
+end
+
+;Create the turtle at the center and sets the shape
+to spawnNextBlock
+  cro 1[
+    set isTurtleMoving? true
+    set breed item 0 nextBlocksList
+    setxy 9 21 ;Middle of screen
+
+    ;If the turtle spawns on a block, game is over
+    if pcolor != black[
+      ;lost
+    ]
+
+    ;Reorientate
+    if breed = sticks [
+      rt 90
+    ]
+
+  ]
+end
+
+;Asks the patches around the turtle to look like that of the block
+to setPatchDesign
+  if breed = sticks [
+    ask patch-ahead 1 [
+      set pcolor gray
+      set isPatchMoving? true
+    ]
+    ask patch-ahead 2 [
+      set pcolor gray
+      set isPatchMoving? true
+    ]
+    ask patch-here [
+      set pcolor gray
+      set isPatchMoving? true
+    ]
+    ask patch-at-heading-and-distance (heading + 180) 1[
+      set pcolor gray
+      set isPatchMoving? true
+    ]
+  ]
+end
+
+;;;;;;;;;;;;
+;;Controls;;
+;;;;;;;;;;;;
+;Controls need to move patch not just turtle that is moving***
 
 to lefty
-  ask turtles with [ isMoving = true ][
+  ask turtles with [ isTurtleMoving? = true ][
     set xcor xcor - 1
   ]
 end
 
 to righty
-  ask turtles with [ isMoving = true ][
+  ask turtles with [ isTurtleMoving? = true ][
     set xcor xcor + 1
   ]
 end
 
 to down
-  ask turtles with [ isMoving = true ][
+  ask turtles with [ isTurtleMoving? = true ][
     set ycor ycor - 1
   ]
 end
 
 to rotateRight
-  ask turtles with [ ismoving = true][
+  ask turtles with [ isTurtleMoving? = true][
     rt 90
   ]
 end
 
 to rotateLeft
-  ask turtles with [ ismoving = true][
+  ask turtles with [ isTurtleMoving? = true][
     lt 90
   ]
 end
-
-to createNextBlocksList
-  let blockToMake one-of POSSIBLE_BLOCKS
-  ;Resets list for next set of 7 tetriminoes
-  if length usedBlocksList = 7 [
-    set usedBlocksList []
-  ]
-
-  ;Prevents duplicated blocks spawning in each set
-  while member? blockToMake usedBlocksList[
-    set blockToMake one-of POSSIBLE_BLOCKS
-  ]
-end
-;Create the turtle at the center and sets the shape
-to spawnNextBlock
-  cro 1[
-    set breed item 0 nextBlocksList
-    setxyPos
-  ]
-end
-;Moves turtle to center of screen
-to setxyPos
-
-end
-;Asks the patches around the turtle to look like
-;that of the block
-to setPatchDesign
-
-end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+255
 10
-618
+663
 594
 -1
 -1
@@ -296,6 +379,23 @@ T
 OBSERVER
 NIL
 L
+NIL
+NIL
+1
+
+BUTTON
+110
+14
+173
+47
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
 NIL
 NIL
 1
@@ -642,7 +742,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.1
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
