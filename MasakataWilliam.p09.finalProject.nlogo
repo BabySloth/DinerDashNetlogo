@@ -24,12 +24,10 @@ globals [
 
   ;List of blocks will spawn in the future
   nextBlocksList
-
 ]
 
 to setup
   ca
-  reset-ticks
 
   resize-world 0 15 0 22
   set-patch-size 25
@@ -45,32 +43,42 @@ to setup
 end
 
 to go
-  every 1[
+  every 1 / 8[
     ifelse not any? turtles with [isTurtleMoving?][
       spawnNextBlock
+      ask turtles with [ isTurtleMoving? ][
+        setPatchDesign
+        show breed
+      ]
     ][
       ;Sets patch design only if there is an active turtle
       ;and gives a breif pause
       moveBlockDown
-      ask turtles with [isTurtleMoving?][
-        setPatchDesign
-      ]
-
-
-      agePatches
+      updatePatch
     ]
     ask patches with [isPatchMoving?][
-    set pcolor gray ;Needs to be moved after implementation of unique colors
-  ]
-    tick
+      set pcolor gray ;Needs to be moved after implementation of unique colors
+    ]
   ]
 end
 
 to moveBlockDown
   ask turtles with [isTurtleMoving?][
+    ;Clears the patches left behind
+    ask patches with [isPatchMoving?][
+      set isPatchMoving? false
+      set pcolor black
+    ]
+
     ;Patches colored by the turtle determines if turtle can continue
     ;moving down
-    set ycor ycor - 1
+    set ycor ycor - .1
+  ]
+end
+
+to updatePatch
+  ask turtles with [isTurtleMoving?][
+    setPatchDesign
   ]
 end
 
@@ -155,33 +163,30 @@ to spawnNextBlock
     set breed item 0 nextBlocksList
     setxy 9 21 ;Middle of screen
     set heading 90 ;Prevents tetris pieces sticking out weirdly
-
+    hide-turtle
     ;If the turtle spawns on a block, game is over
     if pcolor != black[
       ;lost
     ]
-
-
-
   ]
 end
 
 ;Asks the patches around the turtle to look like that of the block
 to setPatchDesign
   if breed = sticks [
-    stickDesign
+    sticksDesign
   ]
   if breed = boxes[
     boxesDesign
   ]
   if breed = pyramids[
-
+    pyramidsDesign
   ]
   if breed = lBlocks[
-    lBlockDesign
+    lBlocksDesign
   ]
   if breed = jBlocks[
-
+    jBlocksDesign
   ]
   if breed = zBlocks[
 
@@ -192,7 +197,7 @@ to setPatchDesign
 
 end
 
-to stickDesign
+to sticksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 180) 1[ set isPatchMoving? true ]
 end
@@ -201,14 +206,29 @@ to boxesDesign
   ask patch-here [set isPatchMoving? true ]
   ask patch-ahead 1[ set isPatchMoving? true ]
   ask patch xcor (ycor - 1) [ set isPatchMoving? true ]
-  ask patch (xcor - 1) (ycor - 1) [ set isPatchMoving? true ]
-
+  ask patch (xcor + 1) (ycor - 1) [ set isPatchMoving? true ]
 end
 
-to lBlockDesign
+to pyramidsDesign
+  ;Faces downwards to fit all the parts of the block
+  set heading 180
+  ask patch-here [ set isPatchMoving? true ]
+  ask patch-ahead 1 [ set isPatchMoving? true]
+  ask patch-right-and-ahead 45 1 [ set isPatchMoving? true]
+  ask patch-left-and-ahead 45 1 [ set isPatchMoving? true]
+end
+
+to lBlocksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true ]
 end
+
+to jBlocksDesign
+  threeRowLine
+  ask patch-at-heading-and-distance (heading + 25) 2 [ set isPatchMoving? true ]
+end
+
+
 
 
 ;Makes patches colored 3 in a line to prevent repetitive code
@@ -237,12 +257,14 @@ to lefty
   ask turtles with [ isTurtleMoving? = true ][
     set xcor xcor - 1
   ]
+  updatePatch
 end
 
 to righty
   ask turtles with [ isTurtleMoving? = true ][
     set xcor xcor + 1
   ]
+  updatePatch
 end
 
 to down
@@ -255,12 +277,14 @@ to rotateRight
   ask turtles with [ isTurtleMoving? = true and breed != boxes][
     rt 90
   ]
+  updatePatch
 end
 
 to rotateLeft
   ask turtles with [ isTurtleMoving? = true and breed != boxes][
     lt 90
   ]
+  updatePatch
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
