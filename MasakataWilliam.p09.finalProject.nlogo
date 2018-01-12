@@ -11,10 +11,8 @@ breed [jBlocks jBlock]
 breed [lBlocks lBlock]
 
 ;Patches get cleared depending on age and isMoving
-patches-own [ isPatchMoving?]
+patches-own [ isPatchMoving? stationary?]
 turtles-own [ isTurtleMoving? ]
-
-;patch 9 21 and 9 22 are center pieces
 
 globals [
   ;Monitors
@@ -29,7 +27,7 @@ globals [
 to setup
   ca
 
-  resize-world 0 15 0 22
+  resize-world 0 14 0 21
   set-patch-size 25
   createGameBorder
   createBorderLines
@@ -53,7 +51,7 @@ to go
     ][
       ;Sets patch design only if there is an active turtle
       ;and gives a breif pause
-      moveBlockDown
+      blockMovement
       updatePatch
     ]
     ask patches with [isPatchMoving?][
@@ -62,18 +60,34 @@ to go
   ]
 end
 
-to moveBlockDown
-  ask turtles with [isTurtleMoving?][
-    ;Clears the patches left behind
-    ask patches with [isPatchMoving?][
-      set isPatchMoving? false
-      set pcolor black
-    ]
+to blockMovement
+  ifelse canMoveDown?[
+    ask turtles with [isTurtleMoving?][
+      ;Clears the patches left behind
+      ask patches with [isPatchMoving?][
+        set isPatchMoving? false
+        set pcolor black
+      ]
 
-    ;Patches colored by the turtle determines if turtle can continue
-    ;moving down
-    set ycor ycor - 1
+      ;Patches colored by the turtle determines if turtle can continue
+      ;moving down
+      set ycor ycor - 1
+    ]
+  ][
+   ;ask patches with [
   ]
+end
+
+to-report canMoveDown?
+  let canMove true
+  ask patches with [isPatchMoving?][
+    ask patch pxcor (pycor - 1)[
+      if stationary? = true[
+        set CanMove false
+      ]
+    ]
+  ]
+  report canMove
 end
 
 to updatePatch
@@ -106,10 +120,12 @@ end
 
 to createGameBorder
   ask patches with [pxcor = 0 or
-    pxcor = 15 or
+    pxcor = 14 or
     pycor = 0 or
-    pycor = 22 ][
+    pycor = 21 ][
 
+    ;Prevents block from destroying border
+    set stationary? true
     set pcolor pink
   ]
 end
@@ -148,16 +164,24 @@ to spawnNextBlock
   cro 1[
     set isTurtleMoving? true
     ;set breed item 0 nextBlocksList
-    set breed jBlocks
-    setxy 9 21 ;Middle of screen
-    set heading 90 ;Prevents tetris pieces sticking out weirdly
-    ;hide-turtle
+    set breed pyramids
+    ifelse breed = pyramids[
+      set heading 90
+    ][
+      set heading 90 ;Prevents tetris pieces sticking out weirdly
+    ]
+    setxy 9 20 ;Middle of screen
+    hide-turtle
     ;If the turtle spawns on a block, game is over
     if pcolor != black[
       ;lost
     ]
   ]
 end
+
+;;;;;;;;;;;;;;;;;
+;;Blocks Design;;
+;;;;;;;;;;;;;;;;;
 
 ;Asks the patches around the turtle to look like that of the block
 to setPatchDesign
@@ -177,48 +201,46 @@ to setPatchDesign
     jBlocksDesign
   ]
   if breed = zBlocks[
-
+    zBlockDesign
   ]
   if breed = sBlocks[
-
+    sBlockDesign
   ]
-
 end
 
 to sticksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 180) 1[ set isPatchMoving? true ]
 end
-
 to boxesDesign
   ask patch-here [set isPatchMoving? true ]
   ask patch-ahead 1[ set isPatchMoving? true ]
   ask patch xcor (ycor - 1) [ set isPatchMoving? true ]
   ask patch (xcor + 1) (ycor - 1) [ set isPatchMoving? true ]
 end
-
 to pyramidsDesign
-  ;Faces downwards to fit all the parts of the block
-  set heading 180
-  ask patch-here [ set isPatchMoving? true ]
-  ask patch-ahead .7 [ set isPatchMoving? true]
-  ask patch-right-and-ahead 45 1 [ set isPatchMoving? true]
-  ask patch-left-and-ahead 45 1 [ set isPatchMoving? true]
+  twoRowLine
+  ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true]
+  ask patch-at-heading-and-distance (heading + 200) 1 [ set isPatchMoving? true]
 end
-
 to lBlocksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true ]
 end
-
 to jBlocksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 25) 2 [ set isPatchMoving? true ]
 end
-
-
-
-
+to sBlockDesign
+  twoRowLine
+  ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true]
+  ask patch-at-heading-and-distance (heading + 135) 1 [ set isPatchMoving? true]
+end
+to zBlockDesign
+  twoRowLine
+  ask patch-at-heading-and-distance (heading + 45) 1 [  set isPatchMoving? true]
+  ask patch-at-heading-and-distance (heading + 35) 2 [  set isPatchMoving? true]
+end
 ;Makes patches colored 3 in a line to prevent repetitive code
 to threeRowLine
   ask patch-ahead 1 [
@@ -232,6 +254,16 @@ to threeRowLine
     ;Prevents patch from disappearing
   ]
 end
+; Makes patches colored 2 in a line to prevent repetitve code
+to twoRowLine
+  ask patch-here [
+    set isPatchMoving? True
+  ]
+  ask patch-ahead 1 [
+    set isPatchMoving? true
+  ]
+end
+
 
 
 
@@ -282,10 +314,11 @@ to rotateRight
     ]
     rt 90
     setPatchDesign
+    show heading
   ]
   ask patches with [isPatchMoving?][
-      set pcolor gray ;Needs to be moved after implementation of unique colors
-    ]
+    set pcolor gray ;Needs to be moved after implementation of unique colors
+  ]
 
 
 end
@@ -303,12 +336,13 @@ to rotateLeft
       set pcolor gray ;Needs to be moved after implementation of unique colors
     ]
 end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 255
 10
-663
-594
+638
+569
 -1
 -1
 25.0
@@ -318,13 +352,13 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 0
-15
+14
 0
-22
+21
 0
 0
 1
@@ -825,7 +859,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
