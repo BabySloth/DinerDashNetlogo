@@ -11,7 +11,7 @@ breed [jBlocks jBlock]
 breed [lBlocks lBlock]
 
 ;Patches get cleared depending on age and isMoving
-patches-own [ isPatchMoving? stationary?]
+patches-own [ isPatchMoving? stationary? designColor]
 turtles-own [ isTurtleMoving? ]
 
 globals [
@@ -24,84 +24,35 @@ globals [
   nextBlocksList
 ]
 
-to setup
-  ca
+;;;;;;;;;;
+;;Setups;;
+;;;;;;;;;;
 
+to setup
+  ca ;Removes previous games stats
+
+  ;Game code setup
+  setUpVariables
+
+  ;Displays setup
+  setUpWorld
+end
+
+;Sets up the displays
+to setUpWorld
   resize-world 0 14 0 21
   set-patch-size 25
   createGameBorder
   createBorderLines
-
-  set nextBlocksList []
-  createNextBlocksList
-
-  ask patches[
-    set isPatchMoving? false
-  ]
-end
-
-to go
-  every 1[
-    ifelse not any? turtles with [isTurtleMoving?][
-      spawnNextBlock
-      ask turtles with [ isTurtleMoving? ][
-        setPatchDesign
-        show breed
-      ]
-    ][
-      ;Sets patch design only if there is an active turtle
-      ;and gives a breif pause
-      blockMovement
-      updatePatch
-    ]
-    ask patches with [isPatchMoving?][
-      set pcolor gray ;Needs to be moved after implementation of unique colors
-    ]
-  ]
-end
-
-to blockMovement
-  ifelse canMoveDown?[
-    ask turtles with [isTurtleMoving?][
-      ;Clears the patches left behind
-      ask patches with [isPatchMoving?][
-        set isPatchMoving? false
-        set pcolor black
-      ]
-
-      ;Patches colored by the turtle determines if turtle can continue
-      ;moving down
-      set ycor ycor - 1
-    ]
-  ][
-   ;ask patches with [
-  ]
-end
-
-to-report canMoveDown?
-  let canMove true
-  ask patches with [isPatchMoving?][
-    ask patch pxcor (pycor - 1)[
-      if stationary? = true[
-        set CanMove false
-      ]
-    ]
-  ]
-  report canMove
-end
-
-to updatePatch
-  ask turtles with [isTurtleMoving?][
-    setPatchDesign
-  ]
 end
 
 ;Create border lines in the well
 to createBorderLines
-  ;this will create a border seperating
-  ;the well from the sidewell
-  ; this will make a grid for the well
+  ;Creates a grid for playable area
   ask patches with [ pxcor > 3 and pcolor != pink][
+    set stationary? false ;blocks can be placed in well
+
+    ;Grid creation
     sprout 1 [
       set heading 0
       set color blue
@@ -118,6 +69,7 @@ to createBorderLines
   ]
 end
 
+;Pink border around the world
 to createGameBorder
   ask patches with [pxcor = 0 or
     pxcor = 14 or
@@ -125,11 +77,108 @@ to createGameBorder
     pycor = 21 ][
 
     ;Prevents block from destroying border
-    set stationary? true
     set pcolor pink
   ]
 end
 
+;Sets up patches variables and globals to prevent errors
+;Errors from globals always being initializing as 0 and a []
+to setupVariables
+  ask patches[
+    set isPatchMoving? false
+    set stationary? true ;Will be changed to false in well during next setup procedure call
+  ]
+
+  ;Makes nextBlocksList an list
+  set nextBlocksList []
+end
+
+to go
+  every 1[
+    createNextBlocksList ;Creates order to spawn blocks to drop
+
+    ifelse not any? turtles with [isTurtleMoving?][
+      spawnNextBlock
+      ask turtles with [ isTurtleMoving? ][
+        setPatchDesign
+      ]
+      updatePatches
+    ][
+      ;Blocks are created depending on the invisible turtle
+      ;controlled by player and forced downward movement by the game
+
+      ;Block movements
+      moveBlockDown
+
+      ;Clear line
+      clearLines
+
+      ;Updates monitors
+    ]
+  ]
+end
+
+;Checks if the block can move down and moves it down
+;or makes the block stationary to represent it cannot
+;go further down
+to moveBlockDown
+  ask turtles with [ isTurtleMoving?][
+    ifelse canMoveDown?[
+      clearPatchesMoving ;Hides the block on the scren
+      set ycor ycor - 1 ;Moves the turtle down
+      setPatchDesign ;SetPatchDesign and updatePatches work
+      updatePatches  ;together to show block to player
+    ][
+      ;Makes it a stationary block that can no longer movs
+      ask patches with [isPatchMoving?][
+        set isPatchMoving? false
+        set stationary? true
+      ]
+      die ;Allows for creating another block to drop
+    ]
+  ]
+end
+
+;Checks if there is a stationary block below
+to-report canMoveDown?
+  let canMove true
+  ask patches with [isPatchMoving?][
+    ask patch pxcor (pycor - 1)[
+      if stationary? = true[
+        set canMove false
+      ]
+    ]
+  ]
+  report canMove
+end
+
+;Removes all patches that are moving
+;to allow for smooth movement
+;Assisted by updatesPatches
+to clearPatchesMoving
+  ask patches with [isPatchMoving?][
+    set isPatchMoving? false
+    set pcolor black
+  ]
+end
+
+;Shows block to player again
+to updatePatches
+  ask patches with [isPatchMoving?][
+    set pcolor designColor
+  ]
+end
+
+to clearLines
+
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Creating Blocks Logic;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;Creates what the next 14* blocks will be
+;Is actually 7 or 14 next blocks, but can just be assumed to be 14
 to createNextBlocksList
   ;;Rules for creating blocks
   ;There is a box with two bags inside. Each bag contains the seven possible
@@ -162,20 +211,26 @@ end
 ;Create the turtle at the center and sets the shape
 to spawnNextBlock
   cro 1[
-    set isTurtleMoving? true
-    ;set breed item 0 nextBlocksList
-    set breed pyramids
-    ifelse breed = pyramids[
-      set heading 90
-    ][
-      set heading 90 ;Prevents tetris pieces sticking out weirdly
-    ]
-    setxy 9 20 ;Middle of screen
-    hide-turtle
-    ;If the turtle spawns on a block, game is over
+    set isTurtleMoving? true ;Tells computer to move this specific block
+    set breed item 0 nextBlocksList ;Sets block to the next block in the list to create
+    determineHeading ;Specific heading to prevent blocks from going fof the screen
+    setxy 9 19 ;Middle of screen
+    hide-turtle ;Player will only see the patches
+
+    ;If the turtle spawns on a block, game is over because the well is filled
     if pcolor != black[
-      ;lost
+      ;Lost
     ]
+  ]
+  ;Tells game that the next piece is used up
+  set nextBlocksList bf nextBlocksList
+end
+
+to determineHeading
+  ifelse breed = sticks[ ;Prevents sticks from going off the screen
+    set heading 270 ;Prevents block from sticking our randomly
+  ][
+    set heading 180
   ]
 end
 
@@ -185,26 +240,35 @@ end
 
 ;Asks the patches around the turtle to look like that of the block
 to setPatchDesign
+  ;Gives the design of the block (color and shape)
+
   if breed = sticks [
     sticksDesign
+    colorChoices cyan
   ]
   if breed = boxes[
     boxesDesign
+    colorChoices yellow
   ]
   if breed = pyramids[
     pyramidsDesign
+    colorChoices magenta
   ]
   if breed = lBlocks[
     lBlocksDesign
+    colorChoices orange
   ]
   if breed = jBlocks[
     jBlocksDesign
+    colorChoices blue
   ]
   if breed = zBlocks[
     zBlockDesign
+    colorChoices red
   ]
   if breed = sBlocks[
     sBlockDesign
+    colorChoices yellow
   ]
 end
 
@@ -212,35 +276,45 @@ to sticksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 180) 1[ set isPatchMoving? true ]
 end
+
 to boxesDesign
   ask patch-here [set isPatchMoving? true ]
   ask patch-ahead 1[ set isPatchMoving? true ]
-  ask patch xcor (ycor - 1) [ set isPatchMoving? true ]
-  ask patch (xcor + 1) (ycor - 1) [ set isPatchMoving? true ]
+  ask patch (xcor - 1) (ycor - 1) [ set isPatchMoving? true ]
+  ask patch (xcor - 1) ycor [ set isPatchMoving? true ]
 end
+
 to pyramidsDesign
   twoRowLine
   ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true]
   ask patch-at-heading-and-distance (heading + 200) 1 [ set isPatchMoving? true]
 end
+
 to lBlocksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true ]
 end
+
 to jBlocksDesign
   threeRowLine
   ask patch-at-heading-and-distance (heading + 25) 2 [ set isPatchMoving? true ]
 end
+
 to sBlockDesign
   twoRowLine
   ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true]
   ask patch-at-heading-and-distance (heading + 135) 1 [ set isPatchMoving? true]
 end
+
 to zBlockDesign
-  twoRowLine
-  ask patch-at-heading-and-distance (heading + 45) 1 [  set isPatchMoving? true]
-  ask patch-at-heading-and-distance (heading + 35) 2 [  set isPatchMoving? true]
+  ask patch-here [ set isPatchMoving? true ]
+  ask patch-at-heading-and-distance ( heading + 180) 1 [ set isPatchMoving? true ]
+  ask patch-at-heading-and-distance (heading + 90) 1 [ set isPatchMoving? true ]
+  ask patch-at-heading-and-distance (heading + 35) 1 [ set isPatchMoving? true ]
 end
+
+;Helps make blocks design
+
 ;Makes patches colored 3 in a line to prevent repetitive code
 to threeRowLine
   ask patch-ahead 1 [
@@ -254,6 +328,7 @@ to threeRowLine
     ;Prevents patch from disappearing
   ]
 end
+
 ; Makes patches colored 2 in a line to prevent repetitve code
 to twoRowLine
   ask patch-here [
@@ -264,7 +339,12 @@ to twoRowLine
   ]
 end
 
-
+;Makes each block have an unique color
+to colorChoices [colorChoice]
+  ask patches with [isPatchMoving?][
+    set designColor colorChoice
+  ]
+end
 
 
 ;;;;;;;;;;;;
@@ -273,69 +353,83 @@ end
 ;Controls need to move patch not just turtle that is moving***
 
 to lefty
-  ask turtles with [ isTurtleMoving? = true ][
-    ask patches with [isPatchMoving?][
-      set isPatchMoving? false
-      set pcolor black
-    ]
-    set xcor xcor - 1
-    setPatchDesign
-  ]
-  ask patches with [isPatchMoving?][
-      set pcolor gray ;Needs to be moved after implementation of unique colors
-    ]
+  moveRight -1 ;same as moving left 1
 end
 
 to righty
-  ask turtles with [ isTurtleMoving? = true ][
-    ask patches with [isPatchMoving?][
-      set isPatchMoving? false
-      set pcolor black
-    ]
-    set xcor xcor + 1
+  moveRight 1
+end
+
+;Moves to right
+to moveRight [distanceMove]
+  ask turtles with [ isTurtleMoving? ][
+    clearPatchesMoving ;Removes block from screen
+    set xcor xcor + distanceMove ;Moves the invisible turtle for testing
     setPatchDesign
-  ]
-  ask patches with [isPatchMoving?][
-      set pcolor gray ;Needs to be moved after implementation of unique colors
+
+    ;Checks if movement right or left will take up a space that
+    ;is either an already place block, sidebar, or pink border
+    let validMovement? true
+
+    ask patches with [stationary?][
+      if isPatchMoving?[
+        set validMovement? false
+        set isPatchMoving? false
+      ]
     ]
+
+    ;Undo the movement
+    if not validMovement? [
+      clearPatchesMoving
+      set xcor xcor + (-1 * distanceMove)
+      setPatchDesign
+    ]
+
+    updatePatches
+  ]
 end
 
 to down
-  ask turtles with [ isTurtleMoving? = true ][
-    set ycor ycor - 1
-  ]
+  moveBlockDown
 end
 
 to rotateRight
-  ask turtles with [ isTurtleMoving? = true and breed != boxes][
-    ask patches with [isPatchMoving?][
-      set isPatchMoving? false
-      set pcolor black
-    ]
-    rt 90
-    setPatchDesign
-    show heading
-  ]
-  ask patches with [isPatchMoving?][
-    set pcolor gray ;Needs to be moved after implementation of unique colors
-  ]
-
-
+  rotation 90
 end
 
 to rotateLeft
-  ask turtles with [ isTurtleMoving? = true and breed != boxes][
-    ask patches with [isPatchMoving?][
-      set isPatchMoving? false
-      set pcolor black
-    ]
-    lt 90
-    setPatchDesign
-  ]
-  ask patches with [isPatchMoving?][
-      set pcolor gray ;Needs to be moved after implementation of unique colors
-    ]
+  rotation 270 ;Same thing as lt 90
 end
+
+;Rotation to right
+to rotation [degree]
+  ask turtles with [ isTurtleMoving? and breed != boxes ][
+    clearPatchesMoving ;Removes block from screen
+    rt degree ;Rotates the invisble turtle for testing
+    setPatchDesign
+
+    ;Checks if rotation will take up a space it isn't suppose to
+    ;either an already placed block or sidebar or pink border
+    let validRotation? true
+
+    ask patches with [stationary?][
+      if isPatchMoving?[
+        set validRotation? false
+        set isPatchMoving? false
+      ]
+    ]
+
+    if not validRotation?[
+      clearPatchesMoving
+      rt 270 ;undo the rotation
+      setPatchDesign
+    ]
+  ]
+
+  updatePatches
+end
+
+
 
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -859,7 +953,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.1
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
