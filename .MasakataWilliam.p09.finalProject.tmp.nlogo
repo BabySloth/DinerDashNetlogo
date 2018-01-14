@@ -646,7 +646,7 @@ BUTTON
 147
 206
 Down
-moveDown
+down
 NIL
 1
 T
@@ -663,7 +663,7 @@ BUTTON
 70
 204
 Left
-moveLeft
+lefty
 NIL
 1
 T
