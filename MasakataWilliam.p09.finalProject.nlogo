@@ -2,6 +2,7 @@
 ;Period 9
 ;Tetris draft
 
+;Breed determines what shape the block is
 breed [sticks stick]
 breed [boxes box]
 breed [pyramids pyramid]
@@ -11,14 +12,27 @@ breed [jBlocks jBlock]
 breed [lBlocks lBlock]
 
 ;Patches get cleared depending on age and isMoving
-patches-own [ isPatchMoving? stationary? designColor]
+patches-own [ isPatchMoving? stationary? designColor nextColor]
 turtles-own [ isTurtleMoving? ]
+
+;Terms
+;Well - the playing field
+
+;Sidebar - the 3 by 20 patch on the left side displaying next block and
+;what block was saved
+
+;Block/tetrominoes - the **PATCHES** colored representing blocks
+
+;Invisible turtle - the turtle being controlled by the player
+;and the tetrominoes are build based on the position of this turtle
+
+;Sticks, pyramids... all the names of breed - names of tetrominoes
 
 globals [
   ;Monitors
-  Level
+  level
   linesCleared
-  Goal
+  goal
 
   ;List of blocks will spawn in the future
   nextBlocksList
@@ -44,26 +58,21 @@ to setUpWorld
   set-patch-size 25
   createGameBorder
   createBorderLines
+  setStationaryPatches
 end
 
-;Create border lines in the well
+;Separates well from side bar
 to createBorderLines
-  ;Creates a grid for playable area
-  ask patches with [ pxcor > 3 and pcolor != pink][
-    set stationary? false ;blocks can be placed in well
-
-    ;Grid creation
-    sprout 1 [
+  ask patch 4 20 [
+    sprout 1[
       set heading 0
-      set color blue
-      fd 0.5
-      pd
-      rt 90
+      set color white
       fd .5
-      repeat 4[
-        rt 90
-        fd 1
-      ]
+      lt 90
+      fd .5
+      pd
+      lt 90
+      fd 20
       die
     ]
   ]
@@ -76,7 +85,6 @@ to createGameBorder
     pycor = 0 or
     pycor = 21 ][
 
-    ;Prevents block from destroying border
     set pcolor pink
   ]
 end
@@ -91,10 +99,22 @@ to setupVariables
 
   ;Makes nextBlocksList an list
   set nextBlocksList []
+  set level 1
+end
+
+to setStationaryPatches
+  ;Makes everything an place to be able to put a block
+  ask patches[
+    set stationary? false
+  ]
+  ;Limits the places you can put down blocks
+  ask patches with [pcolor = pink or pxcor <= 3][
+    set stationary? true
+  ]
 end
 
 to go
-  every 1[
+  every 1 - (1 / 20 * level) [
     createNextBlocksList ;Creates order to spawn blocks to drop
 
     ifelse not any? turtles with [isTurtleMoving?][
@@ -113,10 +133,15 @@ to go
       ;Clear line
       clearLines
 
-      ;Updates monitors
+      ;Monitors
+      levelUp
     ]
   ]
 end
+
+;;;;;;;;;;;;;;;;;;;
+;;Blocks movement;;
+;;;;;;;;;;;;;;;;;;;
 
 ;Checks if the block can move down and moves it down
 ;or makes the block stationary to represent it cannot
@@ -169,8 +194,82 @@ to updatePatches
   ]
 end
 
-to clearLines
+;;;;;;;;;;;;;;;;;;
+;;Clearing lines;;
+;;;;;;;;;;;;;;;;;;
 
+to clearLines
+  ;Create an for-loop with yPos being loop variable
+  let yPos 19
+  repeat 19[ ;Repeat 19 to cover all possible rows
+    if (isRowFull? yPos)[
+      clearRow yPos ;Clears the row
+      moveRowsDown yPos ;Moves all the rows above down
+    ]
+    set yPos (yPos - 1)
+  ]
+end
+
+to clearRow [yPos]
+  ;Clears the row with the matching yPos and pxcor that are in the well
+  ask patches with [pycor = yPos and isInWell?][
+    set stationary? false ;Block can be placed on the row now
+    set pcolor black ;Player won't see the original row anymore
+  ]
+
+  ;Add to counter that lines were cleared
+  set linesCleared linesCleared + 1
+end
+
+to moveRowsDown [yPos]
+  ask patches with [pycor > yPos and isInWell? and stationary?][
+    set stationary? false ;Blocks can be placed on the patch
+
+    ;Gives row below what color to change to
+    ask patch pxcor (pycor - 1)[
+      set nextColor [pcolor] of myself
+    ]
+    ;Clears the block from being seen
+    set pcolor black
+  ]
+
+  ;Tells row below to change color only if it has a color to change to
+  ask patches with [nextColor != 0][
+    set pcolor nextColor
+    set nextColor 0
+    set stationary? true
+  ]
+end
+
+;Checks if the entire row has a part of a block to be cleared
+to-report isRowFull? [yPos]
+  let full? true
+
+  ;Creates an for-loop with xPos being the loop variable
+  let xPos 4
+  repeat 10[
+    ask patch xPos yPos[
+      if not stationary?[
+        set full? false
+      ]
+    ]
+    set xPos (xPos + 1)
+  ]
+  report full?
+end
+
+;Reports true if the patch is part of the well
+to-report isInWell?
+  report pxcor >= 4 and pxcor <= 13 and pycor < 21 and pycor > 0
+end
+
+;;;;;;;;;;;;
+;;Monitors;;
+;;;;;;;;;;;;
+
+to levelUp
+  ;every 10 lines cleared, game will speed up by 1/20 and level up
+  set level ((floor linesCleared / 10) + 1)
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -181,13 +280,13 @@ end
 ;Is actually 7 or 14 next blocks, but can just be assumed to be 14
 to createNextBlocksList
   ;;Rules for creating blocks
-  ;There is a box with two bags inside. Each bag contains the seven possible
-  ;tetris pieces. The computer will take a piece randomly from one bag at a time
-  ;for the player to place down. Once the bag is empty, the computer will refill it
-  ;and the computer will move to the second bag. Once the second bag is empty,
-  ;it will go back to the first bag to repeat this process. This process allows
-  ;for the player to see the next 4 pieces without gaps.
-  ;** The bag are actually combined into one set; not a 2-D array
+  ;There are two bag each containg the seven possible tetris pieces. The computer
+  ;will take a piece randomly from one bag at a time for the player to place down.
+  ;Once the bag is empty, the computer will refill it and move to the second bag.
+  ;Once the second bag is empty it will go back to the first bag to repeat this process.
+  ;This process allows for the player to have an almost completely equal chance of every block
+  ;** This is not a 2-D list, but a list with 14 elements
+  ;** This algotherim is based on the original tetris with permutation set of 7
 
   ;This is all the pieces of blocks in tetris
   let POSSIBLE_BLOCKS (list sticks boxes pyramids sBlocks zBlocks jBlocks lBlocks)
@@ -204,7 +303,7 @@ to createNextBlocksList
   ;Every 7 blocks placed will generate another set of 7 blocks to add to queue
   if length nextBlocksList = 7[
     let randomSet shuffle POSSIBLE_BLOCKS
-    foreach randomSet [x -> set nextBlocksList lput x nextBlocksList] ;x is each element
+    foreach randomSet [blockElement -> set nextBlocksList lput blockElement nextBlocksList]
   ]
 end
 
@@ -215,13 +314,14 @@ to spawnNextBlock
     set breed item 0 nextBlocksList ;Sets block to the next block in the list to create
     determineHeading ;Specific heading to prevent blocks from going fof the screen
     setxy 9 19 ;Middle of screen
-    hide-turtle ;Player will only see the patches
+    ;hide-turtle ;Player will only see the patches
 
     ;If the turtle spawns on a block, game is over because the well is filled
     if pcolor != black[
       ;Lost
     ]
   ]
+
   ;Tells game that the next piece is used up
   set nextBlocksList bf nextBlocksList
 end
@@ -237,6 +337,9 @@ end
 ;;;;;;;;;;;;;;;;;
 ;;Blocks Design;;
 ;;;;;;;;;;;;;;;;;
+
+;Patch's isPatchMoving? is set to true
+;So that updatePatches procedure will set the color
 
 ;Asks the patches around the turtle to look like that of the block
 to setPatchDesign
@@ -268,7 +371,7 @@ to setPatchDesign
   ]
   if breed = sBlocks[
     sBlockDesign
-    colorChoices yellow
+    colorChoices green
   ]
 end
 
@@ -313,7 +416,7 @@ to zBlockDesign
   ask patch-at-heading-and-distance (heading + 35) 1 [ set isPatchMoving? true ]
 end
 
-;Helps make blocks design
+;Helps make blocks design:
 
 ;Makes patches colored 3 in a line to prevent repetitive code
 to threeRowLine
@@ -325,7 +428,6 @@ to threeRowLine
   ]
   ask patch-here [
     set isPatchMoving? true
-    ;Prevents patch from disappearing
   ]
 end
 
@@ -367,24 +469,15 @@ to moveRight [distanceMove]
     set xcor xcor + distanceMove ;Moves the invisible turtle for testing
     setPatchDesign
 
-    ;Checks if movement right or left will take up a space that
-    ;is either an already place block, sidebar, or pink border
-    let validMovement? true
-
-    ask patches with [stationary?][
-      if isPatchMoving?[
-        set validMovement? false
-        set isPatchMoving? false
-      ]
-    ]
-
-    ;Undo the movement
-    if not validMovement? [
+    ;Undo the movement if the action
+    ;breaks the game's rule
+    if not validAction? [
       clearPatchesMoving
       set xcor xcor + (-1 * distanceMove)
       setPatchDesign
     ]
 
+    ;Shows blocks to player again
     updatePatches
   ]
 end
@@ -408,26 +501,32 @@ to rotation [degree]
     rt degree ;Rotates the invisble turtle for testing
     setPatchDesign
 
-    ;Checks if rotation will take up a space it isn't suppose to
-    ;either an already placed block or sidebar or pink border
-    let validRotation? true
-
-    ask patches with [stationary?][
-      if isPatchMoving?[
-        set validRotation? false
-        set isPatchMoving? false
-      ]
-    ]
-
-    if not validRotation?[
+    ;Undo rotation if the action
+    ;breaks the game's rule
+    if not validAction?[
       clearPatchesMoving
       rt 270 ;undo the rotation
       setPatchDesign
     ]
   ]
 
+  ;Shows blocks to player again
   updatePatches
 end
+
+;Checks if what player does will go into
+;an area it isn't suppose to (non-well area)
+to-report validAction?
+  let valid? true
+  ask patches with [stationary?][
+    if isPatchMoving?[
+      set valid? false
+      set isPatchMoving? false
+    ]
+  ]
+  report valid?
+end
+
 
 
 
@@ -446,8 +545,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-0
-0
+1
+1
 1
 0
 14
@@ -465,7 +564,7 @@ MONITOR
 67
 98
 NIL
-Level
+level
 17
 1
 11
@@ -487,7 +586,7 @@ MONITOR
 135
 98
 NIL
-Goal
+goal
 17
 1
 11
