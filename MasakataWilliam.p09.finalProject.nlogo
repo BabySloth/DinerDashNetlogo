@@ -13,7 +13,7 @@ breed [lBlocks lBlock]
 
 ;Patches get cleared depending on age and isMoving
 patches-own [ isPatchMoving? stationary? designColor nextColor]
-turtles-own [ isTurtleMoving? ]
+turtles-own [ isTurtleMoving? isUsingHoldPiece?]
 
 ;Terms
 ;Well - the playing field
@@ -27,6 +27,8 @@ turtles-own [ isTurtleMoving? ]
 ;and the tetrominoes are build based on the position of this turtle
 
 ;Sticks, pyramids... all the names of breed - names of tetrominoes
+
+;Hold - Save piece for usage later and can only be used once per drop
 
 globals [
   ;Monitors
@@ -52,6 +54,20 @@ to setup
   setUpWorld
 end
 
+;Sets up patches variables and globals to prevent errors
+;Errors from globals always being initializing as 0 and a []
+to setupVariables
+  ask patches[
+    set isPatchMoving? false
+    set stationary? true ;Will be changed to false in well during next setup procedure call
+  ]
+
+  ;Makes nextBlocksList an list
+  set nextBlocksList []
+  set level 1
+end
+
+
 ;Sets up the displays
 to setUpWorld
   resize-world 0 14 0 21
@@ -59,6 +75,18 @@ to setUpWorld
   createGameBorder
   createBorderLines
   setStationaryPatches
+  setSideBar
+end
+
+;Pink border around the world
+to createGameBorder
+  ask patches with [pxcor = 0 or
+    pxcor = 14 or
+    pycor = 0 or
+    pycor = 21 ][
+
+    set pcolor pink
+  ]
 end
 
 ;Separates well from side bar
@@ -78,30 +106,7 @@ to createBorderLines
   ]
 end
 
-;Pink border around the world
-to createGameBorder
-  ask patches with [pxcor = 0 or
-    pxcor = 14 or
-    pycor = 0 or
-    pycor = 21 ][
-
-    set pcolor pink
-  ]
-end
-
-;Sets up patches variables and globals to prevent errors
-;Errors from globals always being initializing as 0 and a []
-to setupVariables
-  ask patches[
-    set isPatchMoving? false
-    set stationary? true ;Will be changed to false in well during next setup procedure call
-  ]
-
-  ;Makes nextBlocksList an list
-  set nextBlocksList []
-  set level 1
-end
-
+;Determines what place can a block be on
 to setStationaryPatches
   ;Makes everything an place to be able to put a block
   ask patches[
@@ -111,6 +116,27 @@ to setStationaryPatches
   ask patches with [pcolor = pink or pxcor <= 3][
     set stationary? true
   ]
+end
+
+to setSideBar
+  holdPieceDeisgn ;Shows what piece is on hold
+  upNextDeisgn ;Shows the next 4 blocks that will drop
+end
+
+to holdPieceDeisgn
+  ;Tells player that block below is saved
+  ask patch 2 20[
+    set plabel "Saved"
+  ]
+  cro 1[
+    setxy 2 18
+    ;Prevents turtle from moving
+    set isTurtleMoving? false
+  ]
+end
+
+to upNextDeisgn
+
 end
 
 to go
@@ -129,9 +155,6 @@ to go
 
       ;Block movements
       moveBlockDown
-
-      ;Clear line
-      clearLines
 
       ;Monitors
       levelUp
@@ -263,6 +286,12 @@ to-report isInWell?
   report pxcor >= 4 and pxcor <= 13 and pycor < 21 and pycor > 0
 end
 
+to updateSideBar
+  ask turtle 1[
+
+  ]
+end
+
 ;;;;;;;;;;;;
 ;;Monitors;;
 ;;;;;;;;;;;;
@@ -314,8 +343,8 @@ to spawnNextBlock
     set breed item 0 nextBlocksList ;Sets block to the next block in the list to create
     determineHeading ;Specific heading to prevent blocks from going fof the screen
     setxy 9 19 ;Middle of screen
-    ;hide-turtle ;Player will only see the patches
-
+    hide-turtle ;Player will only see the patches
+    set isUsingHoldPiece? false
     ;If the turtle spawns on a block, game is over because the well is filled
     if pcolor != black[
       ;Lost
@@ -332,6 +361,10 @@ to determineHeading
   ][
     set heading 180
   ]
+end
+
+to showNextBlock
+
 end
 
 ;;;;;;;;;;;;;;;;;
@@ -527,6 +560,39 @@ to-report validAction?
   report valid?
 end
 
+to holdPiece
+  let turtleSaving 0 ;This turtle shows the player what is saved
+  let breedDropping turtles ;Block the player is dropping
+
+  ask patch 2 18[
+    set turtleSaving one-of turtles-here
+  ]
+
+  ask turtles with [isTurtleMoving?][
+    if not isUsingHoldPiece? [
+      set breedDropping breed
+      set breed [breed] of turtleSaving
+      ifelse breed = turtles[
+        setxy 9 19
+        set breed item 0 nextBlocksList
+        set nextBlocksList bf nextBlocksList
+      ][
+        setxy 9 19
+
+      ]
+      set isUsingHoldPiece? true
+
+      ask turtleSaving[
+        set breed breedDropping
+      ]
+    ]
+  ]
+end
+
+
+
+
+
 
 
 
@@ -694,10 +760,10 @@ NIL
 1
 
 BUTTON
-110
-14
-173
-47
+96
+10
+159
+43
 NIL
 go
 T
@@ -706,6 +772,23 @@ T
 OBSERVER
 NIL
 NIL
+NIL
+NIL
+1
+
+BUTTON
+81
+261
+144
+294
+Hold
+holdPiece
+NIL
+1
+T
+OBSERVER
+NIL
+C
 NIL
 NIL
 1
