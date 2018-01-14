@@ -72,14 +72,13 @@ end
 to setUpWorld
   resize-world 0 14 0 21
   set-patch-size 25
-  createGameBorder
-  createBorderLines
+  setMapDesign
   setStationaryPatches
   setSideBar
 end
 
-;Pink border around the world
-to createGameBorder
+to setMapDesign
+  ;Creates pink border around the world
   ask patches with [pxcor = 0 or
     pxcor = 14 or
     pycor = 0 or
@@ -87,22 +86,14 @@ to createGameBorder
 
     set pcolor pink
   ]
-end
 
-;Separates well from side bar
-to createBorderLines
-  ask patch 4 20 [
-    sprout 1[
-      set heading 0
-      set color white
-      fd .5
-      lt 90
-      fd .5
-      pd
-      lt 90
-      fd 20
-      die
-    ]
+  ;Creates white line separating sidebar from well
+  cro 1[
+    setxy 3.5 .5
+    pd
+    set color white
+    fd 20
+    die
   ]
 end
 
@@ -588,7 +579,6 @@ to holdPiece
     ]
   ]
 end
-
 
 
 
