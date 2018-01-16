@@ -1,5 +1,17 @@
+;Team name: Babysloths
+;Masataka Mizuno
+;William Cao
+;Final Project -- Tetris
+;1/15/18
+
+;Needs to be fixed:
+;Ghost piece -Masa
+;Lose screen -Masa
+;Hold piece  -Will
+
 breed [sideBarTurtles sideBarTurtle]         ;Tells what blocks are saved and upcoming blocks
 breed [controllingTurtles controllingTurtle] ;Player is controlling this turtle (only one exist at once)
+breed [ghosts ghost]                         ;Tells which blocks to be colored gray
 
 patches-own [
   isStationary? ;If a block can be placed on the patch
@@ -16,7 +28,6 @@ turtles-own [
 globals [
  level          ;Monitor variables
  linesCleared
- goal
  nextBlocksList ;What the next 14 blocks are
 ]
 
@@ -126,6 +137,7 @@ to go
   clearLinesLogic
 
   every 1 - ((1 / 20) * level) [ ;Determines speed of dropping blocks
+    ;nextGhostPieces  --DOESN'T WORK
     createNextBlocksList         ;Determines order to drop blocks
     levelUp
     clearBlockPatches            ;Clears blocks moving for illusion of it moving
@@ -134,9 +146,11 @@ to go
     ][
       moveBlockDown              ;Moves the turtle down allowing for blocks to move down
     ]
+
     updateSideBar
     showBlockPatches
   ]
+  ;ghostPieces --DOESN'T WORK
 end
 
 ;;;;;;;;;;;;;;;;;;
@@ -240,6 +254,33 @@ end
 to showBlockPatches
   ask patches with [isBlockPart? and isInWell?][
     set pcolor blockColor
+  ]
+end
+
+;;;;;;;;;;;;;;;
+;;Ghost piece;;
+;;;;;;;;;;;;;;;
+to ghostPieces
+  ask patches with [iscontrolled?]
+  ; this will tell the piece that is moving to make a copy of itself
+  [sprout 1 [
+    set breed ghosts
+    set hidden? true
+    set heading 180
+    repeat 20 [ ifelse [isstationary?] of patch-ahead 1 = true
+      [ ask ghosts [fd 0]]
+      [ fd 1 ]
+  ]]]
+  if count ghosts != 0
+  [ ask ghosts [set pcolor gray]]
+end
+
+to nextGhostPieces
+  if count ghosts != 0
+  [
+    ask patches with [pcolor = gray]
+    [ set pcolor black]
+    ask ghosts [die]
   ]
 end
 
@@ -537,6 +578,10 @@ to rotation [degreeRight]
   ]
 end
 
+to holdPiece
+  ;Empty
+
+end
 
 
 
@@ -597,17 +642,6 @@ MONITOR
 159
 Lines Cleared
 linesCleared
-17
-1
-11
-
-MONITOR
-78
-53
-135
-98
-NIL
-goal
 17
 1
 11
