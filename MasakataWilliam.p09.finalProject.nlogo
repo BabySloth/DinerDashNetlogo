@@ -21,6 +21,11 @@ patches-own [
   nextColor     ;For moving rows down
   isSideBar? ;Prevents sidebar pieces from disappearing
 ]
+
+ghosts-own [
+
+  stopIt ; this will tell the ghosts when to stop
+]
 turtles-own [
   pieceDesign   ;Tells what block the turtle is going to create
 ]
@@ -135,9 +140,11 @@ end
 to go
   ;Clear the row and add to monitors, needs to be outside of every for smooth removal
   clearLinesLogic
+  nextGhostPieces
 
   every 1 - ((1 / 20) * level) [ ;Determines speed of dropping blocks
-    ;nextGhostPieces  --DOESN'T WORK
+
+    ;nextGhostPieces
     createNextBlocksList         ;Determines order to drop blocks
     levelUp
     clearBlockPatches            ;Clears blocks moving for illusion of it moving
@@ -149,8 +156,9 @@ to go
 
     updateSideBar
     showBlockPatches
+
   ]
-  ;ghostPieces --DOESN'T WORK
+  ghostpieces
 end
 
 ;;;;;;;;;;;;;;;;;;
@@ -267,15 +275,25 @@ to ghostPieces
     set breed ghosts
     set hidden? true
     set heading 180
-    repeat 20 [ ifelse [isstationary?] of patch-ahead 1 = true
-      [ ask ghosts [fd 0]]
+    set stopIt false
+  ]]
+    ; this will move the turtles to the lowest possible move
+    repeat 20 [
+    ask ghosts [
+    if stopIt = false ; this will tell the ghosts whether to move or not
+    [ifelse [isstationary?] of patch-ahead 1 = true
+      [ ask ghosts [fd 0 set stopIt true]]
       [ fd 1 ]
-  ]]]
+    ]
+  ]
+  ]
+  ; this will set the ghost turtles to change the pcolor to gray
   if count ghosts != 0
   [ ask ghosts [set pcolor gray]]
 end
 
 to nextGhostPieces
+  ; this will prepare the next ghost pieces by deleting the other ones
   if count ghosts != 0
   [
     ask patches with [pcolor = gray]
@@ -582,7 +600,6 @@ to holdPiece
   ;Empty
 
 end
-
 
 
 
@@ -1124,7 +1141,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
