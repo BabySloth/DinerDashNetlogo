@@ -7,6 +7,7 @@ patches-own [
   blockColor    ;What the color needs to change to
   isControlled? ;Whether the block is being controlled by player
   nextColor     ;For moving rows down
+  isSideBar? ;Prevents sidebar pieces from disappearing
 ]
 turtles-own [
   pieceDesign   ;Tells what block the turtle is going to create
@@ -34,28 +35,33 @@ to setup
 
   ;Makes nextBlocksList a variable
   set nextBlocksList []
+
+  ;Makes side bar area
+  setSideBar
 end
 
 to setMapDesign
   ;Resizes world
-  resize-world 0 14 0 21
+  resize-world 0 15 0 21
   set-patch-size 25
 
   ;Creates pink border around the world
   ask patches with [pxcor = 0 or
-    pxcor = 14 or
+    pxcor = 15 or
     pycor = 0 or
-    pycor = 21 ][
+    pycor = 21 or
+    pxcor = 4][
 
     set pcolor pink
   ]
 
-  ;Creates white line separating sidebar from well
+  ;Create white line separating holding piece from next pieces
   cro 1[
-    setxy 3.5 .5
+    setxy .5 15
     set color white
+    set heading 90
     pd
-    fd 20
+    fd 3
     die
   ]
 end
@@ -66,11 +72,48 @@ to setPlayAbleArea
     set isStationary? false
     set isBlockPart? false
     set isControlled? false
+    set isSideBar? false
   ]
 
   ;Narrows down to only well being playable
   ask patches with [pcolor = pink or pxcor <= 3][
     set isStationary? true
+  ]
+  ;Makes side bar distinct because blocks exist in an stationary area, which isn't allow in well
+  ask patches with [pcolor = black and pxcor <= 3][
+    set isSideBar? true
+  ]
+end
+
+to setSideBar
+  ;Hold piece
+  ask patch 2 20[              ;Text display
+   set plabel "Hold"
+  ]
+
+  create-sideBarTurtles 1[
+    setxy 2 18
+  ]
+
+  ask patch 2 14 [
+    set plabel "Next"
+  ]
+
+  ;Shows the next pieces are
+  create-sideBarTurtles 1[
+    setxy 2 11
+  ]
+
+  ;How both turtles will appear
+  sideBarTurtleDesign
+end
+
+to sideBarTurtleDesign
+  ask sideBarTurtles[
+    set pieceDesign "null"       ;Doesn't have anything to switch to in the beginning
+    hide-turtle                  ;Player doesn't need to see it
+    set heading 180
+    setBlockPartsPatches
   ]
 end
 
@@ -91,9 +134,41 @@ to go
     ][
       moveBlockDown              ;Moves the turtle down allowing for blocks to move down
     ]
-
+    updateSideBar
     showBlockPatches
+  ]
+end
 
+;;;;;;;;;;;;;;;;;;
+;;Update sidebar;;
+;;;;;;;;;;;;;;;;;;
+
+to updateSideBar
+  clearSideBarPieces
+  updateNextPieces ;Update display on side to correctly match what next pieces are
+  showSideBarPieces
+end
+
+to updateNextPieces ;;
+  ask sideBarTurtle 2[
+    set pieceDesign item 0 nextBlocksList
+    setBlockPartsPatches
+  ]
+end
+
+;Shows the block
+to showSideBarPieces
+  ask patches with [isBlockPart? and isSideBar?][
+    set pcolor blockColor
+  ]
+end
+
+;Clears the block and updates to next block to display
+to clearSideBarPieces
+  ask patches with [isBlockPart? and isSideBar?][
+    set isBlockPart? false
+    set blockColor 0
+    set pcolor black
   ]
 end
 
@@ -138,7 +213,7 @@ to-report validAction?
   let isValid? true ;Assumes it is a legal move
   ;Checks if block is in an area is isn't suppose to
   ask patches with [isStationary?][
-    if isBlockPart?[
+    if isControlled?[
       ;If it is, report false and fix variables(isBlockPart?)
       set isValid? false
       set isBlockPart? false
@@ -150,11 +225,11 @@ end
 
 ;;;;;;;;;;;;;;;;;;;
 ;;Block movements;; ;;Blocks are just patches chaning color to appear like they are moving
-;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;; ;;Deals with pieces in the well
 
 ;Removes all moving blocks
 to clearBlockPatches
-  ask patches with [isControlled?][
+  ask patches with [isControlled? and isInWell?][
     set isControlled? false
     set isBlockPart? false
     set pcolor black
@@ -163,7 +238,7 @@ end
 
 ;Makes the blocks appear again
 to showBlockPatches
-  ask patches with [isControlled?][
+  ask patches with [isBlockPart? and isInWell?][
     set pcolor blockColor
   ]
 end
@@ -180,7 +255,7 @@ to clearLinesLogic
       clearRow yPos
       moveRowsDown yPos
     ]
-    set yPos (yPos - 1) ;Iiteratoration
+    set yPos (yPos - 1)
   ]
 end
 
@@ -234,9 +309,8 @@ end
 
 ;Reports true if the patch is part of the well
 to-report isInWell?
-  report pxcor >= 4 and pxcor <= 13 and pycor < 21 and pycor > 0
+  report pxcor >= 5 and pxcor <= 14 and pycor < 21 and pycor > 0
 end
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Creating blocks logic;;
@@ -274,12 +348,11 @@ end
 
 to createControllingTurtle
   create-controllingTurtles 1[
-    setxy 9 19                             ;Top middle of the screen
+    setxy 9 19                              ;Top middle of the screen
     set pieceDesign item 0 nextBlocksList  ;What type of block is dropping
-    determineHeading
+    set heading 90
     hide-turtle                            ;Player does not need to see it
     setBlockPartsPatches                   ;Player can see the blocks
-
     if pcolor != black[                    ;Player cannot fill up to the 19th spot
       ;Player lost
     ]
@@ -287,15 +360,6 @@ to createControllingTurtle
 
   ;nextBlocksList needs to removed the used up block
   set nextBlocksList bf nextBlocksList
-end
-
-to determineHeading
-  ;Prevents blocks from going off the screen when created
-  ifelse pieceDesign = "sticks"[
-    set heading 270
-  ][
-    set heading 180
-  ]
 end
 
 ;;;;;;;;;;;;
@@ -314,116 +378,99 @@ end
 
 ;Must be called by sideBarTurtles or controllingTurtles
 to setBlockPartsPatches
+  let colorBlock 0
   if pieceDesign = "sticks" [
     sticksDesign
-    colorChoices cyan
+    set colorBlock cyan
   ]
   if pieceDesign = "boxes"[
     boxesDesign
-    colorChoices yellow
+    set colorBlock yellow
   ]
   if pieceDesign = "pyramids"[
     pyramidsDesign
-    colorChoices magenta
+    set colorBlock magenta
   ]
   if pieceDesign = "lBlocks"[
     lBlocksDesign
-    colorChoices orange
+    set colorBlock orange
   ]
   if pieceDesign = "jBlocks"[
     jBlocksDesign
-    colorChoices blue
+    set colorBlock blue
   ]
   if pieceDesign = "zBlocks"[
     zBlockDesign
-    colorChoices red
+    set colorBlock red
   ]
   if pieceDesign = "sBlocks"[
     sBlockDesign
-    colorChoices green
+    set colorBlock green
   ]
 
   ;Determines if the block can be dropped or not
-  ask patches with [isBlockPart?][
-    ifelse [breed] of myself = controllingTurtles[
-      set isControlled? true
-    ][
-      set isControlled? false
+  ask patches with [not isSideBar? and isBlockPart?][
+    set isControlled? true
+    if [breed] of myself = controllingTurtles[
+      set blockColor colorBlock
+    ]
+  ]
+  ask patches with [isSideBar? and isBlockPart?][
+    set isControlled? false
+    if [breed] of myself = sideBarTurtles[
+      set blockColor colorBlock
     ]
   ]
 end
 
 to sticksDesign
   threeRowLine
-  ask patch-at-heading-and-distance (heading + 180) 1[ set isBlockPart? true ]
+  ask patch-ahead 2[ set isBlockPart? true ]
 end
 
 to boxesDesign
   ask patch-here [set isBlockPart? true ]
-  ask patch-ahead 1[ set isBlockPart? true ]
-  ask patch (xcor - 1) (ycor - 1) [ set isBlockPart? true ]
-  ask patch (xcor - 1) ycor [ set isBlockPart? true ]
+  ask patch-ahead 1 [ set isBlockPart? true ]
+  ask patch-right-and-ahead 45 1 [ set isBlockPart? true ]
+  ask patch-right-and-ahead 90 1 [ set isBlockPart? true ]
 end
 
 to pyramidsDesign
-  twoRowLine
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true]
-  ask patch-at-heading-and-distance (heading + 200) 1 [ set isBlockPart? true]
+  threeRowLine
+  ask patch-left-and-ahead 90 1 [ set isBlockPart? true ]
 end
 
 to lBlocksDesign
   threeRowLine
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true ]
+  ask patch-left-and-ahead 45 1 [ set isBlockPart? true ]
 end
 
 to jBlocksDesign
   threeRowLine
-  ask patch-at-heading-and-distance (heading + 25) 2 [ set isBlockPart? true ]
+  ask patch-at-heading-and-distance (heading + 225) 1 [ set isBlockPart? true ]
 end
 
 to sBlockDesign
-  twoRowLine
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true]
-  ask patch-at-heading-and-distance (heading + 135) 1 [ set isBlockPart? true]
+  ask patch-here [set isBlockPart? true]
+  ask patch-ahead 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 90 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 135 1 [set isBlockPart? true]
 end
 
 to zBlockDesign
-  ask patch-here [ set isBlockPart? true ]
-  ask patch-at-heading-and-distance ( heading + 180) 1 [ set isBlockPart? true ]
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true ]
-  ask patch-at-heading-and-distance (heading + 35) 1 [ set isBlockPart? true ]
+  ask patch-here [set isBlockPart? true]
+  ask patch-right-and-ahead 180 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 90 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 45 1 [set isBlockPart? true]
 end
 
 ;;Helps make blocks design:
 
 ;Makes patches colored 3 in a line to prevent repetitive code
 to threeRowLine
-  ask patch-ahead 1 [
-    set isBlockPart? true
-  ]
-  ask patch-ahead 2 [
-    set isBlockPart? true
-  ]
-  ask patch-here [
-    set isBlockPart? true
-  ]
-end
-
-; Makes patches colored 2 in a line to prevent repetitve code
-to twoRowLine
-  ask patch-here [
-    set isBlockPart? True
-  ]
-  ask patch-ahead 1 [
-    set isBlockPart? true
-  ]
-end
-
-;Makes each block have an unique color
-to colorChoices [colorChoice]
-  ask patches with [isBlockPart?][
-    set blockColor colorChoice
-  ]
+  ask patch-at-heading-and-distance (heading + 180) 1 [ set isBlockPart? true ]
+  ask patch-ahead 1 [ set isBlockPart? true ]
+  ask patch-here [ set isBlockPart? true ]
 end
 
 ;;;;;;;;;;;;
@@ -504,86 +551,11 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 255
 10
-638
+663
 569
 -1
 -1
@@ -598,7 +570,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-14
+15
 0
 21
 0
