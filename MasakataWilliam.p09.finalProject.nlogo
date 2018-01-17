@@ -29,6 +29,7 @@ controllingTurtles-own[
 
 turtles-own [
   pieceDesign   ;Tells what block the turtle is going to create
+  stopIt
 ]
 
 globals [
@@ -49,6 +50,9 @@ to setup
 
   ;Determines what area are playable
   setPlayAbleArea
+
+  ; set up a boundry line
+  setupPieceBoundary
 
   ;Makes nextBlocksList a variable
   set nextBlocksList []
@@ -79,6 +83,17 @@ to setMapDesign
     set heading 90
     pd
     fd 3
+    die
+  ]
+end
+to setupPieceBoundary
+  ; sets up the piece boundry
+  cro 1 [
+    set color pink
+    setxy 4 19
+    pd
+    set heading 90
+    fd 11
     die
   ]
 end
@@ -282,21 +297,27 @@ end
 ;;;;;;;;;;;;;;;
 ;;Ghost piece;;
 ;;;;;;;;;;;;;;;
-to ghostPieces
+
+  to ghostPieces
   ask patches with [iscontrolled?]
   ; this will tell the piece that is moving to make a copy of itself
   [sprout 1 [
     set breed ghosts
     set hidden? true
     set heading 180
-    repeat 20 [ ifelse [isstationary?] of patch-ahead 1 = true
-      [ ask ghosts [fd 0]]
+    set stopIt false
+  ]]
+
+    repeat 20[
+    ask ghosts [
+     if stopIt = false
+    [ ifelse [isstationary?] of patch-ahead 1 = true
+      [ ask ghosts [fd 0 set stopIt true]]
       [ fd 1 ]
   ]]]
   if count ghosts != 0
   [ ask ghosts [set pcolor gray]]
 end
-
 to nextGhostPieces
   if count ghosts != 0
   [
@@ -305,6 +326,7 @@ to nextGhostPieces
     ask ghosts [die]
   ]
 end
+
 
 ;;;;;;;;;;;;;;;;;;
 ;;Clearing lines;;
@@ -664,7 +686,6 @@ to holdPiece
     createControllingTurtle true
   ]
 end
-
 
 
 
