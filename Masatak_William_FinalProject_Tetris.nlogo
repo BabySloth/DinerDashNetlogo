@@ -2,7 +2,7 @@
 ;Masataka Mizuno
 ;William Cao
 ;Final Project -- Tetris
-;1/15/18
+;1/17/18
 
 breed [sideBarTurtles sideBarTurtle]         ;Tells what blocks are saved and upcoming blocks
 breed [controllingTurtles controllingTurtle] ;Player is controlling this turtle (only one exist at once)
@@ -754,7 +754,6 @@ end
 to restart
   setup
 end
-
 
 
 
