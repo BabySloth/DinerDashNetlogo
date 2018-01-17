@@ -21,6 +21,12 @@ patches-own [
   nextColor     ;For moving rows down
   isSideBar? ;Prevents sidebar pieces from disappearing
 ]
+
+controllingTurtles-own[
+  ;Checks if the player already used the hold button in this drop
+  isUsedPiece?
+]
+
 turtles-own [
   pieceDesign   ;Tells what block the turtle is going to create
 ]
@@ -106,14 +112,21 @@ to setSideBar
     setxy 2 18
   ]
 
-  ask patch 2 14 [
+  ask patch 2 15 [
     set plabel "Next"
   ]
 
   ;Shows the next pieces are
   create-sideBarTurtles 1[
-    setxy 2 11
+    setxy 2 13
   ]
+  create-sideBarTurtles 1[
+    setxy 2 8
+  ]
+  create-sideBarTurtles 1[
+    setxy 2 3
+  ]
+
 
   ;How both turtles will appear
   sideBarTurtleDesign
@@ -121,10 +134,13 @@ end
 
 to sideBarTurtleDesign
   ask sideBarTurtles[
-    set pieceDesign "null"       ;Doesn't have anything to switch to in the beginning
-    hide-turtle                  ;Player doesn't need to see it
+    set pieceDesign "null"         ;Doesn't have anything to switch to in the beginning
+    hide-turtle                    ;Player doesn't need to see it
     set heading 180
     setBlockPartsPatches
+  ]
+  ask patches with [isBlockPart?][
+    set pcolor blockColor
   ]
 end
 
@@ -136,15 +152,15 @@ to go
   ;Clear the row and add to monitors, needs to be outside of every for smooth removal
   clearLinesLogic
 
-  every 1 - ((1 / 20) * level) [ ;Determines speed of dropping blocks
+  every 1 - ((1 / 20) * level) [       ;Determines speed of dropping blocks
     ;nextGhostPieces  --DOESN'T WORK
-    createNextBlocksList         ;Determines order to drop blocks
+    createNextBlocksList               ;Determines order to drop blocks
     levelUp
-    clearBlockPatches            ;Clears blocks moving for illusion of it moving
+    clearBlockPatches                  ;Clears blocks moving for illusion of it moving
     ifelse not any? controllingTurtles[
-      createControllingTurtle    ;Creates a turtle if player just placed one down
+      createControllingTurtle false    ;Creates a turtle if player just placed one down
     ][
-      moveBlockDown              ;Moves the turtle down allowing for blocks to move down
+      moveBlockDown                    ;Moves the turtle down allowing for blocks to move down
     ]
 
     updateSideBar
@@ -160,12 +176,20 @@ end
 to updateSideBar
   clearSideBarPieces
   updateNextPieces ;Update display on side to correctly match what next pieces are
+  updateHoldPieces
   showSideBarPieces
 end
 
-to updateNextPieces ;;
-  ask sideBarTurtle 2[
-    set pieceDesign item 0 nextBlocksList
+to updateHoldPieces
+  ask sideBarTurtle 1[
+    setBlockPartsPatches
+  ]
+end
+
+to updateNextPieces
+  ;Asks bottom 3 turtles in sidebar to show what their next pieces are
+  ask sideBarTurtles with [who > 1][
+    set pieceDesign item (who - 2) nextBlocksList
     setBlockPartsPatches
   ]
 end
@@ -179,7 +203,7 @@ end
 
 ;Clears the block and updates to next block to display
 to clearSideBarPieces
-  ask patches with [isBlockPart? and isSideBar?][
+  ask patches with [isSideBar?][
     set isBlockPart? false
     set blockColor 0
     set pcolor black
@@ -207,8 +231,6 @@ to moveBlockDown
       makeDropStationary      ;Makes the block stay and allows for another block to be made
     ]
   ]
-
-
 end
 
 to makeDropStationary
@@ -305,7 +327,7 @@ to-report isRowFull? [yPos]
 
   ;Creates an for-loop with xPos being the loop variable
   let xPos 4 ;Well minimum pycor is 4
-  repeat 10[
+  repeat 11[
     ask patch xPos yPos[
       if not isStationary?[
         set isFull? false
@@ -387,13 +409,14 @@ to createNextBlocksList
   ]
 end
 
-to createControllingTurtle
+to createControllingTurtle [used?]
   create-controllingTurtles 1[
     setxy 9 19                              ;Top middle of the screen
     set pieceDesign item 0 nextBlocksList  ;What type of block is dropping
     set heading 90
     hide-turtle                            ;Player does not need to see it
     setBlockPartsPatches                   ;Player can see the blocks
+    set isUsedPiece? used?                 ;Determines if the player can save the piece or is forced to drop it
     if pcolor != black[                    ;Player cannot fill up to the 19th spot
       ;Player lost
     ]
@@ -419,47 +442,81 @@ end
 
 ;Must be called by sideBarTurtles or controllingTurtles
 to setBlockPartsPatches
-  let colorBlock 0
+  let colorDesign 0
   if pieceDesign = "sticks" [
     sticksDesign
-    set colorBlock cyan
+    set colorDesign cyan
   ]
   if pieceDesign = "boxes"[
     boxesDesign
-    set colorBlock yellow
+    set colorDesign yellow
   ]
   if pieceDesign = "pyramids"[
     pyramidsDesign
-    set colorBlock magenta
+    set colorDesign magenta
   ]
   if pieceDesign = "lBlocks"[
     lBlocksDesign
-    set colorBlock orange
+    set colorDesign orange
   ]
   if pieceDesign = "jBlocks"[
     jBlocksDesign
-    set colorBlock blue
+    set colorDesign blue
   ]
   if pieceDesign = "zBlocks"[
     zBlockDesign
-    set colorBlock red
+    set colorDesign red
   ]
   if pieceDesign = "sBlocks"[
     sBlockDesign
-    set colorBlock green
+    set colorDesign green
   ]
 
-  ;Determines if the block can be dropped or not
-  ask patches with [not isSideBar? and isBlockPart?][
-    set isControlled? true
-    if [breed] of myself = controllingTurtles[
-      set blockColor colorBlock
+  setColorToChangeTo colorDesign
+end
+
+to setColorToChangeTo [colorDesign]
+  ;Because every patch has the same variable of isBlockPart? and blockColor,
+  ;I can't do ask patches with [isBlockPart?] and must go through each breed calling this
+
+  ;For patches in the well
+  if breed = controllingTurtles[
+    ask patches with [not isSideBar? and isBlockPart?][ ;;Do not use isInWell?
+      set isControlled? true
+      set blockColor colorDesign
     ]
   ]
-  ask patches with [isSideBar? and isBlockPart?][
-    set isControlled? false
-    if [breed] of myself = sideBarTurtles[
-      set blockColor colorBlock
+
+  ;For patches that is showing what piece is being held
+  if breed = sideBarTurtles and who = 1[
+    ask patches with [ isSideBar? and
+      pycor >= 15 and pycor <= 20 and isBlockPart?][
+
+      set blockColor colorDesign
+    ]
+  ]
+
+  ;;For patch that is showing what piece is next:
+  if breed = sideBarTurtles and who = 2[
+    ask patches with [ isSideBar? and
+      pycor >= 11 and pycor <= 14 and isBlockPart?] [
+
+      set blockColor colorDesign
+    ]
+  ]
+
+  if breed = sideBarTurtles and who = 3[
+    ask patches with [ isSideBar? and
+      pycor >= 6 and pycor <= 9 and isBlockPart?] [
+
+      set blockColor colorDesign
+    ]
+  ]
+  if breed = sideBarTurtles and who = 4[
+    ask patches with [ isSideBar? and
+      pycor >= 1 and pycor <= 5 and isBlockPart?] [
+
+      set blockColor colorDesign
     ]
   ]
 end
@@ -579,10 +636,34 @@ to rotation [degreeRight]
 end
 
 to holdPiece
-  ;Empty
+  let pieceToHold "null"
+  ;If player already held the piece and is trying to do it
+  ;in the same run, this procedure will not run
+  let procedureRun? true
 
+  ask controllingTurtles[
+    ;Only works if it is not a usedPiece
+    ifelse isUsedPiece?[
+      set procedureRun? false  ;Player already click hold in the run
+    ][
+      set pieceToHold pieceDesign ;Tells sidebar turtle to display the piece being held
+    ]
+  ]
+
+  if procedureRun?[
+
+    ask sideBarTurtle 1[
+      if pieceDesign != "null"[   ;Piece was saved before
+        set nextBlocksList fput pieceDesign nextBlocksList
+      ]
+        set pieceDesign pieceToHold
+    ]
+    ask controllingTurtles[
+      die
+    ]
+    createControllingTurtle true
+  ]
 end
-
 
 
 
@@ -1124,6 +1205,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
