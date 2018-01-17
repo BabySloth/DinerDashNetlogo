@@ -1,5 +1,12 @@
+;Team name: Babysloths
+;Masataka Mizuno
+;William Cao
+;Final Project -- Tetris
+;1/15/18
+
 breed [sideBarTurtles sideBarTurtle]         ;Tells what blocks are saved and upcoming blocks
 breed [controllingTurtles controllingTurtle] ;Player is controlling this turtle (only one exist at once)
+breed [ghosts ghost]                         ;Tells which blocks to be colored gray
 
 patches-own [
   isStationary? ;If a block can be placed on the patch
@@ -7,16 +14,30 @@ patches-own [
   blockColor    ;What the color needs to change to
   isControlled? ;Whether the block is being controlled by player
   nextColor     ;For moving rows down
+  isSideBar? ;Prevents sidebar pieces from disappearing
+  ghostisstationary?
+  ghostiscontrolled?
+  ghostisblockpart?
 ]
+
+controllingTurtles-own[
+  ;Checks if the player already used the hold button in this drop
+  isUsedPiece?
+]
+
 turtles-own [
   pieceDesign   ;Tells what block the turtle is going to create
 ]
 
+ghosts-own [
+  stopit
+]
+
 globals [
- level          ;Monitor variables
- linesCleared
- goal
- nextBlocksList ;What the next 14 blocks are
+  level           ;Monitor variables
+  linesCleared
+  nextBlocksList  ;What the next 14 blocks are
+  canCreateBlock? ;If player loses, blocks can no longer be created
 ]
 
 ;;;;;;;;;
@@ -34,28 +55,36 @@ to setup
 
   ;Makes nextBlocksList a variable
   set nextBlocksList []
+
+  ;Makes side bar area
+  setSideBar
+
+  ;Telling game that the player wants to play (start/again)
+  set canCreateBlock? true
 end
 
 to setMapDesign
   ;Resizes world
-  resize-world 0 14 0 21
+  resize-world 0 15 0 21
   set-patch-size 25
 
   ;Creates pink border around the world
   ask patches with [pxcor = 0 or
-    pxcor = 14 or
+    pxcor = 15 or
     pycor = 0 or
-    pycor = 21 ][
+    pycor = 21 or
+    pxcor = 4][
 
     set pcolor pink
   ]
 
-  ;Creates white line separating sidebar from well
+  ;Create white line separating holding piece from next pieces
   cro 1[
-    setxy 3.5 .5
+    setxy .5 15
     set color white
+    set heading 90
     pd
-    fd 20
+    fd 3
     die
   ]
 end
@@ -66,11 +95,58 @@ to setPlayAbleArea
     set isStationary? false
     set isBlockPart? false
     set isControlled? false
+    set isSideBar? false
   ]
 
   ;Narrows down to only well being playable
   ask patches with [pcolor = pink or pxcor <= 3][
     set isStationary? true
+  ]
+  ;Makes side bar distinct because blocks exist in an stationary area, which isn't allow in well
+  ask patches with [pcolor = black and pxcor <= 3][
+    set isSideBar? true
+  ]
+end
+
+to setSideBar
+  ;Hold piece
+  ask patch 2 20[                ;Text display
+    set plabel "Hold"
+  ]
+
+  create-sideBarTurtles 1[       ;This turtle shows what piece is being held
+    setxy 2 18
+  ]
+
+  ask patch 2 15 [               ;Text display
+    set plabel "Next"
+  ]
+
+  ;Shows what the next pieces are
+  create-sideBarTurtles 1[
+    setxy 2 13
+  ]
+  create-sideBarTurtles 1[
+    setxy 2 8
+  ]
+  create-sideBarTurtles 1[
+    setxy 2 3
+  ]
+
+
+  ;How both turtles will appear
+  sideBarTurtleDesign
+end
+
+to sideBarTurtleDesign
+  ask sideBarTurtles[
+    set pieceDesign "null"         ;Doesn't have anything to switch to in the beginning
+    hide-turtle                    ;Player doesn't need to see it
+    set heading 180                ;180 to fit all the parts of the pieces
+    setBlockPartsPatches           ;Makes the patches have a design to make it look like a tetris block
+  ]
+  ask patches with [isBlockPart?][ ;Shows the tetris parts to the player
+    set pcolor blockColor
   ]
 end
 
@@ -79,21 +155,67 @@ end
 ;;;;;;
 
 to go
-  ;Clear the row and add to monitors, needs to be outside of every for smooth removal
-  clearLinesLogic
+  if canCreateBlock?[ ;Only runs if the player did not lost yet
+    ;Clear the row and add to monitors, needs to be outside of every for smooth removal
+    clearLinesLogic
 
-  every 1 - ((1 / 20) * level) [ ;Determines speed of dropping blocks
-    createNextBlocksList         ;Determines order to drop blocks
-    levelUp
-    clearBlockPatches            ;Clears blocks moving for illusion of it moving
-    ifelse not any? controllingTurtles[
-      createControllingTurtle    ;Creates a turtle if player just placed one down
-    ][
-      moveBlockDown              ;Moves the turtle down allowing for blocks to move down
+    every .75 [       ;Determines speed of dropping blocks
+      createNextBlocksList               ;Determines order to drop blocks
+      levelUp
+      clearBlockPatches                  ;Clears blocks moving for illusion of it moving
+
+      ifelse not any? controllingTurtles[
+        createControllingTurtle false    ;Creates a turtle if player just placed one down
+      ][
+        moveBlockDown                    ;Moves the turtle down allowing for blocks to move down
+      ]
+
+      updateSideBar
+      nextghostpieces
+      ghostpieces
+      showBlockPatches
     ]
+  ]
+end
 
-    showBlockPatches
+;;;;;;;;;;;;;;;;;;
+;;Update sidebar;;
+;;;;;;;;;;;;;;;;;;
 
+to updateSideBar
+  clearSideBarPieces
+  updateNextPieces ;Update display on side to correctly match what next pieces are
+  updateHoldPieces
+  showSideBarPieces
+end
+
+to updateHoldPieces
+  ask sideBarTurtle 1[
+    setBlockPartsPatches
+  ]
+end
+
+to updateNextPieces
+  ;Asks bottom 3 turtles in sidebar to show what their next pieces are
+  ask sideBarTurtles with [who > 1][
+    set pieceDesign item (who - 2) nextBlocksList
+    setBlockPartsPatches
+  ]
+end
+
+;Shows the block
+to showSideBarPieces
+  ask patches with [isBlockPart? and isSideBar?][
+    set pcolor blockColor
+  ]
+end
+
+;Clears the block and updates to next block to display
+to clearSideBarPieces
+  ask patches with [isSideBar?][
+    set isBlockPart? false
+    set blockColor 0
+    set pcolor black
   ]
 end
 
@@ -118,8 +240,6 @@ to moveBlockDown
       makeDropStationary      ;Makes the block stay and allows for another block to be made
     ]
   ]
-
-
 end
 
 to makeDropStationary
@@ -136,9 +256,9 @@ end
 ;Check if it is valid, if not: undo it
 to-report validAction?
   let isValid? true ;Assumes it is a legal move
-  ;Checks if block is in an area is isn't suppose to
+                    ;Checks if block is in an area is isn't suppose to
   ask patches with [isStationary?][
-    if isBlockPart?[
+    if isControlled? [
       ;If it is, report false and fix variables(isBlockPart?)
       set isValid? false
       set isBlockPart? false
@@ -150,11 +270,11 @@ end
 
 ;;;;;;;;;;;;;;;;;;;
 ;;Block movements;; ;;Blocks are just patches chaning color to appear like they are moving
-;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;; ;;Deals with pieces in the well
 
 ;Removes all moving blocks
 to clearBlockPatches
-  ask patches with [isControlled?][
+  ask patches with [isControlled? and isInWell?][
     set isControlled? false
     set isBlockPart? false
     set pcolor black
@@ -163,24 +283,83 @@ end
 
 ;Makes the blocks appear again
 to showBlockPatches
-  ask patches with [isControlled?][
+  ask patches with [isBlockPart? and isInWell?][
     set pcolor blockColor
   ]
 end
 
+;;;;;;;;;;;;;;;
+;;Ghost piece;;
+;;;;;;;;;;;;;;;
+to ghostPieces
+  ask patches with [iscontrolled?]
+  ; this will tell the piece that is moving to make a copy of itself
+  [sprout 1 [
+    set breed ghosts
+    set hidden? true
+    set heading 180
+    set stopIt false
+  ]]
+
+  repeat 20[
+    ask ghosts [
+      if stopIt = false[
+        if [isstationary?] of patch-ahead 1 = true[
+          ask ghosts [ set stopIt true]
+        ]
+      ]
+    ]
+    ask ghosts [
+      if stopIt = false [ fd 1]
+    ]
+  ]
+  if count ghosts != 0
+  [ ask ghosts [set pcolor gray set ghostiscontrolled? true]]
+end
+
+to nextGhostPieces
+  if count ghosts != 0 or not canCreateBlock?[  ;Asks all ghosts block to be cleared or if the game is over
+    ask patches with [pcolor = gray][
+      set pcolor black]
+    ask ghosts [
+      die
+    ]
+  ]
+  ask patches with [ pcolor = gray][
+    if iscontrolled? [
+      set pcolor [pcolor] of one-of patches with [iscontrolled?]
+    ]
+  ]
+
+end
+
+to-report ghostvalidAction?
+  let ghostisValid? true ;Assumes it is a legal move
+                         ;Checks if block is in an area is isn't suppose to
+  ask patches with [ghostisStationary?][
+    if ghostisControlled? [
+      ;If it is, report false and fix variables(isBlockPart?)
+      set ghostisValid? false
+      set ghostisBlockPart? false
+      set ghostisControlled? false
+    ]
+  ]
+  report ghostisValid?
+end
+
 ;;;;;;;;;;;;;;;;;;
-;;Clearing lines;;
-;;;;;;;;;;;;;;;;;;
+;;Clearing lines;; NOTE: We did not follow rules of 1 line cleared = 1 line, 2 lines cleared = 3 lines on outline
+;;;;;;;;;;;;;;;;;; because it will be too confusing for the player and code
 
 to clearLinesLogic
   ;Creates a nested for-loop to check every row if they are fill
   let yPos 19 ;Checks up to down
   repeat 19[
     if (isRowFull? yPos)[
-      clearRow yPos
-      moveRowsDown yPos
+      clearRow yPos       ;Removes tetris pieces from the row
+      moveRowsDown yPos   ;Makes all stationary tetris pieces from above move down
     ]
-    set yPos (yPos - 1) ;Iiteratoration
+    set yPos (yPos - 1)   ;Moves on to the row below to check if they are full (loop)
   ]
 end
 
@@ -188,16 +367,16 @@ to-report isRowFull? [yPos]
   let isFull? true
 
   ;Creates an for-loop with xPos being the loop variable
-  let xPos 4 ;Well minimum pycor is 4
-  repeat 10[
+  let xPos 4 ;Minimum pycor of the well is 4
+  repeat 11[
     ask patch xPos yPos[
-      if not isStationary?[
+      if not isStationary?[ ;If there exist a gap, the row is not full
         set isFull? false
       ]
     ]
-    set xPos (xPos + 1)
+    set xPos (xPos + 1)     ;Moves from left side of row to right side of row (loop)
   ]
-  report isFull?
+  report isFull?            ;Report back after checking if row is full
 end
 
 to clearRow [yPos]
@@ -212,15 +391,14 @@ to clearRow [yPos]
 end
 
 to moveRowsDown [yPos]
+  ;Only move down rows above the one cleared
   ask patches with [pycor > yPos and isInWell? and isStationary?][
-    ;Every block is moving down, so the space is clear for blocks to be placed
-    set isStationary? false
+    set isStationary? false ;Every block is moving down, so the space is clear for blocks to be placed
 
-    ;Gives row below what color to change to
-    ask patch pxcor (pycor - 1)[
+    ask patch pxcor (pycor - 1)[        ;Gives row below what color to change to
       set nextColor [pcolor] of myself
     ]
-    set pcolor black ;Clears the block from being seen
+    set pcolor black                    ;Clears the patches from being seen
   ]
 
   ;Tells row below to change only if it has a color to change to
@@ -234,9 +412,8 @@ end
 
 ;Reports true if the patch is part of the well
 to-report isInWell?
-  report pxcor >= 4 and pxcor <= 13 and pycor < 21 and pycor > 0
+  report pxcor >= 5 and pxcor <= 14 and pycor < 21 and pycor > 0
 end
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Creating blocks logic;;
@@ -272,16 +449,21 @@ to createNextBlocksList
   ]
 end
 
-to createControllingTurtle
+to createControllingTurtle [used?]
   create-controllingTurtles 1[
     setxy 9 19                             ;Top middle of the screen
     set pieceDesign item 0 nextBlocksList  ;What type of block is dropping
-    determineHeading
+    set heading 90                         ;Fit all the pieces of the tetris block
     hide-turtle                            ;Player does not need to see it
     setBlockPartsPatches                   ;Player can see the blocks
+    set isUsedPiece? used?                 ;Determines if the player can save the piece or is forced to drop it
+    if not validAction?[                   ;The player filled up too many spaces to fit room for another piece
+       set canCreateBlock? false             ;Prevents more blocks from being created
+      setLostScreen
+    ]
 
     if pcolor != black[                    ;Player cannot fill up to the 19th spot
-      ;Player lost
+
     ]
   ]
 
@@ -289,12 +471,26 @@ to createControllingTurtle
   set nextBlocksList bf nextBlocksList
 end
 
-to determineHeading
-  ;Prevents blocks from going off the screen when created
-  ifelse pieceDesign = "sticks"[
-    set heading 270
-  ][
-    set heading 180
+;;;;;;;;;;;;;;;
+;;Lost screen;;
+;;;;;;;;;;;;;;;
+
+to setLostScreen
+  clearObjects
+  ask patch 14 11[
+    set plabel "You Lost, Please Click Restart To Begin Again"
+  ]
+end
+
+;Removes all except border
+to clearObjects
+  ask controllingTurtles[
+    set pieceDesign "null"   ;Prevent pieces from creating something
+  ]
+  ask patches with [pcolor != pink][
+    set pcolor black
+    set blockColor 0
+    set isBlockPart? false
   ]
 end
 
@@ -314,116 +510,133 @@ end
 
 ;Must be called by sideBarTurtles or controllingTurtles
 to setBlockPartsPatches
+  let colorDesign 0           ;Determines what color the blocks are
   if pieceDesign = "sticks" [
     sticksDesign
-    colorChoices cyan
+    set colorDesign cyan
   ]
   if pieceDesign = "boxes"[
     boxesDesign
-    colorChoices yellow
+    set colorDesign yellow
   ]
   if pieceDesign = "pyramids"[
     pyramidsDesign
-    colorChoices magenta
+    set colorDesign magenta
   ]
   if pieceDesign = "lBlocks"[
     lBlocksDesign
-    colorChoices orange
+    set colorDesign orange
   ]
   if pieceDesign = "jBlocks"[
     jBlocksDesign
-    colorChoices blue
+    set colorDesign blue
   ]
   if pieceDesign = "zBlocks"[
     zBlockDesign
-    colorChoices red
+    set colorDesign red
   ]
   if pieceDesign = "sBlocks"[
     sBlockDesign
-    colorChoices green
+    set colorDesign green
   ]
 
-  ;Determines if the block can be dropped or not
-  ask patches with [isBlockPart?][
-    ifelse [breed] of myself = controllingTurtles[
+  setColorToChangeTo colorDesign ;Makes the tetris block update its color
+end
+
+to setColorToChangeTo [colorDesign]
+  ;Because every patch has the same variable of isBlockPart? and blockColor,
+  ;I can't do ask patches with [isBlockPart?] and must go through each breed calling this
+
+  ;For patches in the well
+  if breed = controllingTurtles[
+    ask patches with [not isSideBar? and isBlockPart?][ ;;Do not use isInWell?
       set isControlled? true
-    ][
-      set isControlled? false
+      set blockColor colorDesign
+    ]
+  ]
+
+  ;For patches that is showing what piece is being held
+  if breed = sideBarTurtles and who = 1[
+    ask patches with [ isSideBar? and
+      pycor >= 15 and pycor <= 20 and isBlockPart?][
+
+      set blockColor colorDesign
+    ]
+  ]
+
+  ;;For patch that is showing what piece is next:
+
+  if breed = sideBarTurtles and who = 2[
+    ask patches with [ isSideBar? and
+      pycor >= 11 and pycor <= 14 and isBlockPart?] [
+
+      set blockColor colorDesign
+    ]
+  ]
+
+  if breed = sideBarTurtles and who = 3[
+    ask patches with [ isSideBar? and
+      pycor >= 6 and pycor <= 9 and isBlockPart?] [
+
+      set blockColor colorDesign
+    ]
+  ]
+  if breed = sideBarTurtles and who = 4[
+    ask patches with [ isSideBar? and
+      pycor >= 1 and pycor <= 5 and isBlockPart?] [
+
+      set blockColor colorDesign
     ]
   ]
 end
 
 to sticksDesign
   threeRowLine
-  ask patch-at-heading-and-distance (heading + 180) 1[ set isBlockPart? true ]
+  ask patch-ahead 2[ set isBlockPart? true ]
 end
 
 to boxesDesign
   ask patch-here [set isBlockPart? true ]
-  ask patch-ahead 1[ set isBlockPart? true ]
-  ask patch (xcor - 1) (ycor - 1) [ set isBlockPart? true ]
-  ask patch (xcor - 1) ycor [ set isBlockPart? true ]
+  ask patch-ahead 1 [ set isBlockPart? true ]
+  ask patch-right-and-ahead 45 1 [ set isBlockPart? true ]
+  ask patch-right-and-ahead 90 1 [ set isBlockPart? true ]
 end
 
 to pyramidsDesign
-  twoRowLine
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true]
-  ask patch-at-heading-and-distance (heading + 200) 1 [ set isBlockPart? true]
+  threeRowLine
+  ask patch-left-and-ahead 90 1 [ set isBlockPart? true ]
 end
 
 to lBlocksDesign
   threeRowLine
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true ]
+  ask patch-left-and-ahead 45 1 [ set isBlockPart? true ]
 end
 
 to jBlocksDesign
   threeRowLine
-  ask patch-at-heading-and-distance (heading + 25) 2 [ set isBlockPart? true ]
+  ask patch-at-heading-and-distance (heading + 225) 1 [ set isBlockPart? true ]
 end
 
 to sBlockDesign
-  twoRowLine
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true]
-  ask patch-at-heading-and-distance (heading + 135) 1 [ set isBlockPart? true]
+  ask patch-here [set isBlockPart? true]
+  ask patch-ahead 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 90 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 135 1 [set isBlockPart? true]
 end
 
 to zBlockDesign
-  ask patch-here [ set isBlockPart? true ]
-  ask patch-at-heading-and-distance ( heading + 180) 1 [ set isBlockPart? true ]
-  ask patch-at-heading-and-distance (heading + 90) 1 [ set isBlockPart? true ]
-  ask patch-at-heading-and-distance (heading + 35) 1 [ set isBlockPart? true ]
+  ask patch-here [set isBlockPart? true]
+  ask patch-right-and-ahead 180 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 90 1 [set isBlockPart? true]
+  ask patch-right-and-ahead 45 1 [set isBlockPart? true]
 end
 
 ;;Helps make blocks design:
-
 ;Makes patches colored 3 in a line to prevent repetitive code
 to threeRowLine
-  ask patch-ahead 1 [
-    set isBlockPart? true
-  ]
-  ask patch-ahead 2 [
-    set isBlockPart? true
-  ]
-  ask patch-here [
-    set isBlockPart? true
-  ]
-end
-
-; Makes patches colored 2 in a line to prevent repetitve code
-to twoRowLine
-  ask patch-here [
-    set isBlockPart? True
-  ]
-  ask patch-ahead 1 [
-    set isBlockPart? true
-  ]
-end
-
-;Makes each block have an unique color
-to colorChoices [colorChoice]
-  ask patches with [isBlockPart?][
-    set blockColor colorChoice
-  ]
+  ask patch-at-heading-and-distance (heading + 180) 1 [ set isBlockPart? true ]
+  ask patch-ahead 1 [ set isBlockPart? true ]
+  ask patch-here [ set isBlockPart? true ]
 end
 
 ;;;;;;;;;;;;
@@ -433,15 +646,18 @@ end
 ;;Movement to right, left, down
 
 to moveLeft
-  movement -1 ;Effectively same as moving left 1 unit
+  movementR -1 ;Effectively same as moving left 1 unit
 end
 
 to moveRight
-  movement 1
+  movementR 1
 end
 
-to movement [distanceRight]
-  ask controllingTurtles[ ;Boxes have no reason to rotate
+;Movement to 1 patch to the right
+to movementR [distanceRight]
+  ;Only works if the player is able to play a piece
+  if canCreateBlock?[
+    ask controllingTurtles[ ;Boxes have no reason to rotate
     clearBlockPatches                                   ;Removes block from screen
     set xcor (xcor + distanceRight)                     ;Tries to move
     setBlockPartsPatches                                ;^
@@ -455,6 +671,10 @@ to movement [distanceRight]
 
     ;Show block to player again
     showBlockPatches
+    ;Show block to player again
+      nextGhostPieces
+    ghostPieces
+    ]
   ]
 end
 
@@ -473,7 +693,9 @@ to rotateRight
 end
 
 to rotation [degreeRight]
-  ask controllingTurtles with [pieceDesign != "boxes"][ ;Boxes have no reason to rotate
+  ;Only works if the player is able to play a piece
+  if canCreateBlock?[
+    ask controllingTurtles with [pieceDesign != "boxes"][ ;Boxes have no reason to rotate
     clearBlockPatches    ;Removes block from screen
     rt degreeRight       ;Tries to rotate
     setBlockPartsPatches ;^
@@ -487,89 +709,51 @@ to rotation [degreeRight]
 
     ;Show block to player again
     showBlockPatches
+    ;Show ghost piece
+    nextGhostPieces
+    ghostPieces
+  ]
   ]
 end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+to holdPiece
+  ;Only works if the player is able to play a piece
+  if canCreateBlock?[
+    let pieceToHold "null"
+    ;If player already held the piece and is trying to do it
+  ;in the same run, this procedure will not run
+  let procedureRun? true
+
+  ask controllingTurtles[
+    ;Only works if it is not a usedPiece
+    ifelse isUsedPiece?[
+      set procedureRun? false  ;Player already click hold in the run
+    ][
+      set pieceToHold pieceDesign ;Tells sidebar turtle to display the piece being held
+    ]
+  ]
+
+  if procedureRun?[
+
+    ask sideBarTurtle 1[
+      if pieceDesign != "null"[   ;Piece was saved before
+        set nextBlocksList fput pieceDesign nextBlocksList ;Make the next block to spawn be the one that was saved
+      ]
+      set pieceDesign pieceToHold ;Makes the turtle appear like the block saved
+    ]
+    ask controllingTurtles[
+      die ;Enables for using the next block/saved block
+    ]
+    ;Makes a controlling turtle with true as parameter to tell the game that they cannot rehold
+    createControllingTurtle true
+  ]
+  ]
+end
+
+;Restarting is just pressing setup again
+to restart
+  setup
+end
 
 
 
@@ -581,15 +765,15 @@ end
 
 @#$#@#$#@
 GRAPHICS-WINDOW
-255
+257
 10
-638
+665
 569
 -1
 -1
 25.0
 1
-10
+11
 1
 1
 1
@@ -598,7 +782,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-14
+15
 0
 21
 0
@@ -608,10 +792,10 @@ ticks
 30.0
 
 MONITOR
-10
-53
-67
-98
+6
+45
+63
+90
 NIL
 level
 17
@@ -619,34 +803,23 @@ level
 11
 
 MONITOR
-10
-114
-113
-159
+6
+94
+109
+139
 Lines Cleared
 linesCleared
 17
 1
 11
 
-MONITOR
-78
-53
-135
-98
-NIL
-goal
-17
-1
-11
-
 BUTTON
-76
-173
-147
-206
+74
+144
+145
+177
 Down
-down
+moveDown
 NIL
 1
 T
@@ -658,12 +831,12 @@ NIL
 1
 
 BUTTON
-7
-171
-70
-204
+6
+144
+69
+177
 Left
-lefty
+moveLeft
 NIL
 1
 T
@@ -675,10 +848,10 @@ NIL
 1
 
 BUTTON
-151
-173
-220
-206
+150
+144
+219
+177
 Right
 moveRight
 NIL
@@ -692,9 +865,9 @@ NIL
 1
 
 BUTTON
-11
+6
 10
-84
+79
 43
 NIL
 setup
@@ -709,10 +882,10 @@ NIL
 1
 
 BUTTON
-4
+6
+181
+122
 214
-120
-247
 Rotate Left 
 rotateLeft
 NIL
@@ -726,10 +899,10 @@ NIL
 1
 
 BUTTON
-124
+126
+181
+252
 214
-250
-247
 Rotate Right 
 rotateRight
 NIL
@@ -743,9 +916,9 @@ NIL
 1
 
 BUTTON
-96
+83
 10
-159
+146
 43
 NIL
 go
@@ -760,10 +933,10 @@ NIL
 1
 
 BUTTON
-81
-261
-144
-294
+6
+217
+69
+250
 Hold
 holdPiece
 NIL
@@ -772,6 +945,23 @@ T
 OBSERVER
 NIL
 C
+NIL
+NIL
+1
+
+BUTTON
+151
+10
+224
+43
+NIL
+restart
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
 NIL
 NIL
 1
