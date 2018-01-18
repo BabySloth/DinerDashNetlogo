@@ -3,7 +3,8 @@
 ;William Cao
 ;Final Project -- Tetris
 ;1/17/18
-
+; We decided not to add goals and different game modes
+; because it would make the game more confusing for the player
 breed [sideBarTurtles sideBarTurtle]         ;Tells what blocks are saved and upcoming blocks
 breed [controllingTurtles controllingTurtle] ;Player is controlling this turtle (only one exist at once)
 breed [ghosts ghost]                         ;Tells which blocks to be colored gray
@@ -30,7 +31,7 @@ turtles-own [
 ]
 
 ghosts-own [
-  stopit
+  stopit       ; tells the ghosts when to stop
 ]
 
 globals [
@@ -295,22 +296,22 @@ to ghostPieces
   ask patches with [iscontrolled?]
   ; this will tell the piece that is moving to make a copy of itself
   [sprout 1 [
-    set breed ghosts
+    set breed ghosts ; breed of the turtles tht will make the piece
     set hidden? true
     set heading 180
-    set stopIt false
+    set stopIt false ; stop it will tell the turtles to stop when one turtle stops
   ]]
 
   repeat 20[
     ask ghosts [
       if stopIt = false[
-        if [isstationary?] of patch-ahead 1 = true[
+        if [isstationary?] of patch-ahead 1 = true[  ; indicator of whats the valid move
           ask ghosts [ set stopIt true]
         ]
       ]
     ]
     ask ghosts [
-      if stopIt = false [ fd 1]
+      if stopIt = false [ fd 1] ; finds the lowest possible placement
     ]
   ]
   if count ghosts != 0
@@ -322,12 +323,12 @@ to nextGhostPieces
     ask patches with [pcolor = gray][
       set pcolor black]
     ask ghosts [
-      die
+      die ; resets the ghost pieces
     ]
   ]
   ask patches with [ pcolor = gray][
     if iscontrolled? [
-      set pcolor [pcolor] of one-of patches with [iscontrolled?]
+      set pcolor [pcolor] of one-of patches with [iscontrolled?] ; make sures there is no overlaps of pieces and ghosts
     ]
   ]
 
@@ -761,7 +762,6 @@ end
 
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 257
@@ -967,38 +967,37 @@ NIL
 
 @#$#@#$#@
 ## WHAT IS IT?
-
+This is an imitation of the game tetris. 
 (a general understanding of what the model is trying to show or explain)
 
 ## HOW IT WORKS
-
+In tetris the player will recive random 
+blocks of different shapes. The player will arrange these blocks in order to make complete lines of blocks. Once the player has completed breaking a certain number 
+lines, the player won. If the player runs out of places to put pieces then the 
+player loses. 
 (what rules the agents use to create the overall behavior of the model)
 
 ## HOW TO USE IT
-
+The player will recive different shaped blocks. With these blocks, the player can rotate or translate the pieces to different areas of the map using the keys A S D J and K. If a player feels as if they cannot use the piece, pressing C will hold the piece for another turn. One can only hold one piece at a time. To use the piece that is held the player should press c once again. 
 (how to use the model, including a description of each of the items in the Interface tab)
 
 ## THINGS TO NOTICE
-
+In this game the players are allowed to hold different pieces when they feel it is not the right time to use it. There is a space on the interface in which the player can see the next three pieces that will show up. As the pieces drop, the players will see a "ghost image" of the pieces. This will tell the players where the pieces will be placed if they are dropped directly down. 
 (suggested things for the user to notice while running the model)
 
 ## THINGS TO TRY
-
+Things to try is the hold different pieces. If the player thinks they are in trouble, they can quickly switch the pieces using the hold button. 
 (suggested things for the user to try to do (move sliders, switches, etc.) with the model)
 
 ## EXTENDING THE MODEL
-
+To make this code better we can add different game modes that are present in other tetris games. These can range from super speed rounds and rounds with a wider variety of blocks. 
 (suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
 
-## NETLOGO FEATURES
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
 
 ## CREDITS AND REFERENCES
+http://tetris.wikia.com/wiki/Tetris_Guideline
+http://tetris.wikia.com/wiki/Scoring#Guideline_scoring_system
 
 (a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
